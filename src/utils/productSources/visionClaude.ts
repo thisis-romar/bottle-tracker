@@ -51,9 +51,9 @@ const EXTRACT_PRODUCT_TOOL = {
 }
 
 /** Build the Messages API request body with prompt caching on the static blocks. */
-export function buildClaudeVisionRequest(imageBase64: string, mediaType = 'image/jpeg') {
+export function buildClaudeVisionRequest(imageBase64: string, mediaType = 'image/jpeg', model: string = VISION_MODEL) {
   return {
-    model: VISION_MODEL,
+    model,
     max_tokens: 512,
     // System instruction is static → cache it.
     system: [
@@ -80,6 +80,8 @@ export interface ClaudeVisionConfig {
   endpoint: string
   /** Only for direct BYO-key calls; omit when using a proxy that holds the key. */
   apiKey?: string
+  /** Claude model id; defaults to VISION_MODEL. */
+  model?: string
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
@@ -106,7 +108,7 @@ export async function claudeVisionExtract(imageJpeg: Blob, config: ClaudeVisionC
     const res = await fetch(config.endpoint, {
       method: 'POST',
       headers,
-      body: JSON.stringify(buildClaudeVisionRequest(base64)),
+      body: JSON.stringify(buildClaudeVisionRequest(base64, 'image/jpeg', config.model)),
     })
     if (!res.ok) return { source: 'vision', facts: {}, confidence: 0, ok: false, note: `HTTP ${res.status}` }
 

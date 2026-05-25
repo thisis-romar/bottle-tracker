@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 
 export type VisionMode = 'mock' | 'byok' | 'proxy'
+export type VisionModel = 'claude-haiku-4-5' | 'claude-sonnet-4-6' | 'claude-opus-4-7'
 
 export interface AppSettings {
   soundEnabled: boolean
@@ -9,6 +10,8 @@ export interface AppSettings {
   aiDetailsEnabled: boolean
   /** Which on-can vision extractor to use when aiDetailsEnabled is on. */
   visionMode: VisionMode
+  /** Claude model used by the byok/proxy extractor. */
+  visionModel: VisionModel
   /** Anthropic API key for bring-your-own-key mode (stored on this device only). */
   anthropicApiKey: string
   /** Serverless proxy URL for proxy mode. */
@@ -22,6 +25,7 @@ const DEFAULTS: AppSettings = {
   vibrateEnabled: true,
   aiDetailsEnabled: false,
   visionMode: 'mock',
+  visionModel: 'claude-haiku-4-5',
   anthropicApiKey: '',
   visionProxyUrl: ''
 }

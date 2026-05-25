@@ -22,12 +22,12 @@ export async function extractWithVision(
 
   if (mode === 'byok') {
     if (!config?.apiKey) return notConfigured('add your Anthropic API key in Settings')
-    return claudeVisionExtract(imageJpeg, { endpoint: ANTHROPIC_DIRECT, apiKey: config.apiKey })
+    return claudeVisionExtract(imageJpeg, { endpoint: ANTHROPIC_DIRECT, apiKey: config.apiKey, model: config.model })
   }
 
   if (mode === 'proxy') {
     if (!config?.proxyUrl) return notConfigured('set the proxy URL in Settings')
-    return claudeVisionExtract(imageJpeg, { endpoint: config.proxyUrl })
+    return claudeVisionExtract(imageJpeg, { endpoint: config.proxyUrl, model: config.model })
   }
 
   // mock — a mock can't read the label, so it returns only simulated physical attributes

@@ -103,6 +103,7 @@ export default function App() {
             aiDetailsEnabled={settings.aiDetailsEnabled}
             visionConfig={{
               mode: settings.visionMode,
+              model: settings.visionModel,
               apiKey: settings.anthropicApiKey,
               proxyUrl: settings.visionProxyUrl,
             }}

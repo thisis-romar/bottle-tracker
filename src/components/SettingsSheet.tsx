@@ -1,7 +1,13 @@
 import { useState } from 'react'
-import type { AppSettings, VisionMode } from '../hooks/useSettings'
+import type { AppSettings, VisionMode, VisionModel } from '../hooks/useSettings'
 import type { GoogleAuthState } from '../hooks/useGoogleAuth'
 import { extractWithVision } from '../utils/productSources'
+
+const VISION_MODELS: { id: VisionModel; label: string }[] = [
+  { id: 'claude-haiku-4-5',  label: 'Haiku — fast & cheap' },
+  { id: 'claude-sonnet-4-6', label: 'Sonnet — balanced' },
+  { id: 'claude-opus-4-7',   label: 'Opus — most accurate' },
+]
 
 /** A small synthetic label image so "Test extraction" exercises the real call without a camera. */
 async function makeTestImage(): Promise<Blob> {
@@ -162,6 +168,21 @@ export default function SettingsSheet({
             )}
             {settings.visionMode === 'mock' && (
               <div style={hintText}>Simulated extractor — exercises the pipeline without an API key.</div>
+            )}
+
+            {settings.visionMode !== 'mock' && (
+              <div style={{ marginTop: 10 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+                  Model
+                </label>
+                <select
+                  value={settings.visionModel}
+                  onChange={e => onSettingsUpdate({ visionModel: e.target.value as VisionModel })}
+                  style={{ ...settingInput, cursor: 'pointer' }}
+                >
+                  {VISION_MODELS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </div>
             )}
 
             <button
