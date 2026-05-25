@@ -2,10 +2,13 @@
 set -euo pipefail
 
 # Claude Code on the web: install npm dependencies so `npm run build` / `npm run dev`
-# work immediately in-session. No-op in local environments.
+# work in-session. No-op in local environments.
 if [ "${CLAUDE_CODE_REMOTE:-}" != "true" ]; then
   exit 0
 fi
+
+# Async mode: the session starts immediately while this runs in the background.
+echo '{"async": true, "asyncTimeout": 300000}'
 
 cd "$CLAUDE_PROJECT_DIR"
 
