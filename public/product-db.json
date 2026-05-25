@@ -1,18 +1,18 @@
 {
-  "version": 1,
-  "generated": "2025-05-25",
+  "version": 2,
+  "generated": "2026-05-25",
   "note": "All barcodes in this file have been verified against physical products. Do not add barcodes from memory or web searches — check digits must pass validation and the product must be physically scanned. See CONTRIBUTING.md.",
   "products": {
     "062067382215": {
-      "name": "Bud Light 355 mL",
-      "brand": "Bud Light",
+      "name": "Stella Artois 500 mL",
+      "brand": "Stella Artois",
       "brewer": "Labatt",
       "material": "aluminum",
-      "volumeMl": 355,
-      "abv": 4.0,
+      "volumeMl": 500,
+      "abv": 5.0,
       "type": "beer",
       "verifiedBy": "photo-scan",
-      "addedDate": "2025-05-25"
+      "addedDate": "2026-05-25"
     },
     "7501064112058": {
       "name": "Corona Extra 330 mL",

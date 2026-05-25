@@ -58,7 +58,8 @@ Without icons the PWA still works; browsers use a default icon.
 ## Features
 
 - **Scan** — camera barcode scanner using `@zxing/browser`
-  - Vibrates on scan
+  - Beeps + vibrates on scan (both toggleable in Settings)
+  - Flashlight/torch toggle for low-light scanning (where the camera supports it)
   - Debounces duplicate scans (2 s window)
   - Unknown barcodes: bottom-sheet prompts for size/type once, saved locally
 - **Manual Entry** — preset volumes + quantity stepper + "Case of 24" shortcut
@@ -76,11 +77,17 @@ Session        { id, sessionKey, startedAt, finishedAt?, totalItems, totalRefund
 BarcodeMapping { barcode, name?, material, volumeMl, refundCents, updatedAt }
 ```
 
-## Planned / Phase 2
+## Roadmap
 
-- [ ] Cloud sync (Supabase / Firebase)
-- [ ] Google Sheets export
-- [ ] Shared community barcode database
-- [ ] LCBO / UPC product lookup
-- [ ] User accounts
+See [ROADMAP.md](./ROADMAP.md) for the current plan and priorities.
+
+**Done**
+- [x] Google Sheets export (PKCE OAuth, no client secret)
+- [x] Shared community barcode database (`product-db.json` + GitHub contribution workflow)
+- [x] UPC product lookup via Open Food Facts
+
+**Planned**
+- [ ] Larger verified Ontario catalog (barcode-first auto-fill)
+- [ ] Camera OCR fallback to read size off the label when a barcode is unknown
+- [ ] Cloud sync / user accounts
 - [ ] Multi-bag / draft sessions

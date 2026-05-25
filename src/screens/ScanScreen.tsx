@@ -40,12 +40,15 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
   const readerRef   = useRef<BrowserMultiFormatReader | null>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
   const lastScanRef = useRef<{ code: string; time: number } | null>(null)
+  const trackRef    = useRef<MediaStreamTrack | null>(null)
 
   const [scannerStatus, setScannerStatus] = useState<'starting' | 'scanning' | 'error'>('starting')
   const [errorMsg, setErrorMsg] = useState('')
   const [lookup, setLookup] = useState<LookupState>({ phase: 'idle' })
   const [toasts, setToasts] = useState<Toast[]>([])
   const [contributeData, setContributeData] = useState<ContributeData | null>(null)
+  const [torchOn, setTorchOn] = useState(false)
+  const [torchSupported, setTorchSupported] = useState(false)
 
   const addToast = (text: string, type: Toast['type'] = 'success') => {
     const id = Date.now()
@@ -140,6 +143,18 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
 
   const handleSkipUnknown = () => setLookup({ phase: 'idle' })
 
+  const toggleTorch = async () => {
+    const track = trackRef.current
+    if (!track) return
+    try {
+      const next = !torchOn
+      await track.applyConstraints({ advanced: [{ torch: next }] } as unknown as MediaTrackConstraints)
+      setTorchOn(next)
+    } catch (err) {
+      console.warn('[scanner] torch toggle failed', err)
+    }
+  }
+
   // ─── Camera setup ────────────────────────────────────────────────────────
 
   const startScanner = useCallback(async () => {
@@ -168,6 +183,14 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       )
       controlsRef.current = controls
       setScannerStatus('scanning')
+
+      // Detect torch/flashlight support on the active camera track
+      const stream = videoRef.current.srcObject as MediaStream | null
+      const track = stream?.getVideoTracks?.()[0] ?? null
+      trackRef.current = track
+      const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined
+      setTorchSupported(!!caps?.torch)
+      setTorchOn(false)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       setErrorMsg(
@@ -186,6 +209,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     return () => {
       controlsRef.current?.stop()
       controlsRef.current = null
+      trackRef.current = null
     }
   }, [startScanner])
 
@@ -208,6 +232,25 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       {/* Scan guide */}
       {scannerStatus === 'scanning' && !lookingUp && (
         <ScanGuide />
+      )}
+
+      {/* Torch / flashlight toggle — helps in low light */}
+      {scannerStatus === 'scanning' && torchSupported && (
+        <button
+          onClick={toggleTorch}
+          aria-label={torchOn ? 'Turn off flashlight' : 'Turn on flashlight'}
+          style={{
+            position: 'absolute', top: 14, right: 14,
+            width: 46, height: 46, borderRadius: 23,
+            border: 'none', cursor: 'pointer',
+            background: torchOn ? '#fde047' : 'rgba(0,0,0,0.45)',
+            color: torchOn ? '#1f2937' : '#fff',
+            fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
+          }}
+        >
+          🔦
+        </button>
       )}
 
       {/* Starting */}
