@@ -85,7 +85,31 @@ One-time setup:
 - **Current Bag** — live total, per-item quantity adjustment, **Fix** to correct an item (and its
   saved barcode mapping), CSV + Google Sheets export
 - **History** — all saved returns, all-time total, per-session CSV + Google Sheets export
-- **Settings** — sound/vibrate toggles, Google account connect for Sheets export, clear-all-data
+- **Settings** — sound/vibrate toggles, Google account connect for Sheets export, clear-all-data,
+  and the can-detail cross-check controls (below)
+
+### Product-detail cross-check (multi-source, optional)
+
+When **Settings → "Cross-check can details"** is on, an *unknown* barcode triggers a parallel
+lookup across multiple sources, reconciled field-by-field (agreement / conflict / nutrition shown
+in the confirm sheet):
+
+- **Community DB** — your local + `product-db.json` mappings.
+- **Open Food Facts** — name/brand/size + best-effort nutrition (sparse for alcohol).
+- **LCBO** — stub for now (no public barcode API; lights up once a proxy is added).
+- **Photo (Claude vision)** — reads the can label for product/size/ABV/nutrition.
+
+Vision backend is chosen at runtime in Settings:
+
+| Mode | What it does | Setup |
+|------|--------------|-------|
+| **Mock** | No extraction — wiring/testing only | none |
+| **My key (BYO)** | Calls Claude directly from the browser | paste an Anthropic API key (stored only on-device) |
+| **Proxy** | Calls a serverless proxy that holds the key | deploy `worker/` (see [worker/README.md](./worker/README.md)), paste its URL |
+
+Pick the model (**Haiku / Sonnet / Opus**), hit **🧪 Test extraction** to verify a key/proxy without
+scanning, and use **🔁 Re-check details** to re-run the cross-check on the last added item. Requests
+use prompt caching on the static instruction/schema so repeat calls in a scanning burst stay cheap.
 
 ## Data model
 
@@ -98,6 +122,17 @@ Session        { id, sessionKey, startedAt, finishedAt?, totalItems, totalRefund
 BarcodeMapping { barcode, name?, material, volumeMl, refundCents, updatedAt }
 ```
 
+## Development
+
+```bash
+npm install
+npm run dev      # dev server
+npm run build    # tsc typecheck + vite build
+npm test         # vitest (unit tests, e.g. the multi-source reconciler)
+```
+
+CI (`.github/workflows/ci.yml`) runs build + tests on every push and PR.
+
 ## Roadmap
 
 See [ROADMAP.md](./ROADMAP.md) for the current plan and priorities.
@@ -106,9 +141,11 @@ See [ROADMAP.md](./ROADMAP.md) for the current plan and priorities.
 - [x] Google Sheets export (PKCE OAuth, no client secret)
 - [x] Shared community barcode database (`product-db.json` + GitHub contribution workflow)
 - [x] UPC product lookup via Open Food Facts
+- [x] Multi-source product cross-check (Community DB + OFF + LCBO stub + Claude vision), with
+      runtime BYO-key/proxy and a Haiku/Sonnet/Opus selector
 
 **Planned**
 - [ ] Larger verified Ontario catalog (barcode-first auto-fill)
-- [ ] Camera OCR fallback to read size off the label when a barcode is unknown
+- [ ] Real LCBO enrichment (name search via the proxy)
 - [ ] Cloud sync / user accounts
 - [ ] Multi-bag / draft sessions

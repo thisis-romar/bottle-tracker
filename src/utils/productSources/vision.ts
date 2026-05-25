@@ -30,17 +30,8 @@ export async function extractWithVision(
     return claudeVisionExtract(imageJpeg, { endpoint: config.proxyUrl, model: config.model })
   }
 
-  // mock — a mock can't read the label, so it returns only simulated physical attributes
-  await new Promise(r => setTimeout(r, 350))
-  return {
-    source: 'vision',
-    facts: {
-      material: 'aluminum',
-      volumeMl: 355,
-      nutrition: { energyKcal: 145, carbsG: 11, alcoholPct: 5 },
-    },
-    confidence: 0.5,
-    ok: true,
-    note: 'simulated (mock extractor)',
-  }
+  // mock — no real extraction. Return NO facts so it can't fabricate agreement and inflate the
+  // cross-check confidence; it just shows as an unconfigured source. Set a key or proxy for real.
+  await new Promise(r => setTimeout(r, 200))
+  return notConfigured('mock mode — set a key or proxy to read the can')
 }

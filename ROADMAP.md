@@ -38,9 +38,19 @@ Refund auto-derives from type + size; quantity auto-increments on repeat scan. T
 - [ ] Ongoing: grow the *verified barcode* catalog (`public/product-db.json`) from real scans /
       user-submitted photos — can't be fabricated.
 
+## Phase 1.5 — Multi-source cross-check + on-can vision  ✅
+
+- [x] Pluggable `productSources/` pipeline: Community DB + Open Food Facts (now incl. nutrition) +
+      LCBO stub + on-can vision, reconciled field-by-field (`reconcile.ts`, unit-tested).
+- [x] Capture a still frame and show per-source agreement/conflict + nutrition in the confirm sheet.
+- [x] Real Claude vision (tool-use + prompt caching) with runtime backend choice — bring-your-own-key
+      or a Cloudflare Worker proxy (`worker/`) — and a Haiku/Sonnet/Opus selector + Test button.
+- [x] "Re-check details" to re-validate the last added item; tap-to-focus for close-up cans.
+- [x] CI (`.github/workflows/ci.yml`) runs build + vitest on push/PR.
+
 ## Phase 2 — Automate entry II: camera OCR fallback
 
-- [ ] When a barcode is unknown, OCR a video frame on-device (no API key, offline).
+- [ ] On-device OCR fallback (no API key, offline) for when a barcode is unknown and vision is off.
 - [ ] Parse size with the existing `parseVolume()` and infer material with `parseMaterial()`,
       then pre-fill the unknown-barcode sheet so the user just confirms.
 
