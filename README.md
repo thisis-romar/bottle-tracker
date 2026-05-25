@@ -43,15 +43,31 @@ Then on your phone:
 
 ---
 
-## Generate PWA icons (optional)
+## PWA icons
+
+Icons are already generated and committed (`public/icon-192.png`, `icon-512.png`,
+`apple-touch-icon.png`). To regenerate after editing `public/icon.svg`:
 
 ```bash
 npm install -D sharp       # one-time
-node generate-icons.mjs    # creates public/icon-192.png, icon-512.png, apple-touch-icon.png
-npm run build              # rebuild to include icons
+node generate-icons.mjs    # rewrites the PNGs from icon.svg
+npm run build              # rebuild to include them
 ```
 
-Without icons the PWA still works; browsers use a default icon.
+---
+
+## Deploy (GitHub Pages)
+
+Pushing to `main` runs `.github/workflows/deploy.yml`, which builds with the correct
+`/bottle-tracker/` base path and publishes to:
+
+**https://thisis-romar.github.io/bottle-tracker/**
+
+One-time setup:
+- **Settings → Pages → Source: "GitHub Actions"** to enable Pages.
+- For Google Sheets export, add a repo **Variable** `VITE_GOOGLE_CLIENT_ID` and register the OAuth
+  redirect URIs `https://thisis-romar.github.io/bottle-tracker/` and `http://localhost:5173/` in
+  Google Cloud. See `.env.example`.
 
 ---
 
@@ -61,10 +77,15 @@ Without icons the PWA still works; browsers use a default icon.
   - Beeps + vibrates on scan (both toggleable in Settings)
   - Flashlight/torch toggle for low-light scanning (where the camera supports it)
   - Debounces duplicate scans (2 s window)
-  - Unknown barcodes: bottom-sheet prompts for size/type once, saved locally
-- **Manual Entry** — preset volumes + quantity stepper + "Case of 24" shortcut
-- **Current Bag** — live total, per-item quantity adjustment, CSV export
-- **History** — all saved returns, all-time total, per-session CSV export
+  - Recognised barcodes (local + community DB) add instantly with no prompt
+  - High-confidence Open Food Facts matches auto-add too, with an **Undo**; otherwise a
+    bottom-sheet prompts for size/type once and saves it locally
+- **Manual Entry** — searchable product quick-pick that auto-fills type/size/name, plus preset
+  volumes, a quantity stepper, and a "Case of 24" shortcut
+- **Current Bag** — live total, per-item quantity adjustment, **Fix** to correct an item (and its
+  saved barcode mapping), CSV + Google Sheets export
+- **History** — all saved returns, all-time total, per-session CSV + Google Sheets export
+- **Settings** — sound/vibrate toggles, Google account connect for Sheets export, clear-all-data
 
 ## Data model
 

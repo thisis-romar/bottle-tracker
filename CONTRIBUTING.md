@@ -28,15 +28,15 @@ For bulk contributions or corrections to existing entries:
 
 ```json
 "062067382215": {
-  "name": "Bud Light 355 mL",
-  "brand": "Bud Light",
+  "name": "Stella Artois 500 mL",
+  "brand": "Stella Artois",
   "brewer": "Labatt",
   "material": "aluminum",
-  "volumeMl": 355,
-  "abv": 4.0,
+  "volumeMl": 500,
+  "abv": 5.0,
   "type": "beer",
-  "verifiedBy": "community-issue",
-  "addedDate": "2025-05-25"
+  "verifiedBy": "photo-scan",
+  "addedDate": "2026-05-25"
 }
 ```
 
@@ -52,6 +52,11 @@ node -e "
   console.log(cd === +bc[11] ? '✓ valid' : '✗ invalid — expected ' + cd)
 "
 ```
+
+> The snippet above only checks **UPC-A (12-digit)** codes. **EAN-13 (13-digit)** codes use a
+> different weighting, so this one-liner will wrongly reject them. The CI validator
+> (`scripts/validate-contribution.mjs`) handles both lengths — opening a PR is the safest way to
+> validate a 13-digit barcode.
 
 4. Increment `"version"` by 1 in `product-db.json`
 5. Open a PR — CI will validate all check digits

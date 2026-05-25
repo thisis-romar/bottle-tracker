@@ -19,8 +19,8 @@ The refund logic in `src/utils/refund.ts` matches the official Ontario Deposit R
 - [x] Fix PWA manifest paths so the installed app works under the `/bottle-tracker/` base.
 - [x] Correct the mislabeled `062067382215` barcode (was "Bud Light", is Stella Artois).
 - [x] Flashlight/torch toggle in the scanner for low-light scanning.
-- [ ] Generate PWA icons (`npm i -D sharp && node generate-icons.mjs`) — done at deploy time.
-- [ ] Create `main` branch + enable GitHub Pages (Settings → Pages → Source: GitHub Actions).
+- [x] Generate PWA icons (generated and committed to `public/`).
+- [x] Create `main` branch + enable GitHub Pages (Source: GitHub Actions).
 - [ ] Set `VITE_GOOGLE_CLIENT_ID` as a repo Variable and inject it into the deploy build.
 - [ ] Google Cloud: enable Sheets + Drive APIs, create a Web OAuth client, add redirect URIs
       `http://localhost:5173/` and `https://thisis-romar.github.io/bottle-tracker/`.
@@ -29,11 +29,14 @@ The refund logic in `src/utils/refund.ts` matches the official Ontario Deposit R
 
 Refund auto-derives from type + size; quantity auto-increments on repeat scan. Targets type + size.
 
-- [ ] Grow the verified catalog (`public/product-db.json`, `PRODUCT_PROFILES` in
-      `src/data/ontarioSeed.ts`) with common Ontario beer/cooler/wine/spirit SKUs.
-- [ ] Zero-tap add on confident lookups (skip the modal when type + size are known).
-- [ ] "Report wrong mapping" action (reuse the existing GitHub contribution workflow) so
-      mislabels like the Stella/Bud Light mix-up get corrected.
+- [x] Manual Entry product quick-pick (auto-fills type/size/name) + expanded `PRODUCT_PROFILES`
+      in `src/data/ontarioSeed.ts`.
+- [x] Zero-tap add on confident lookups (local/community DB; high-confidence Open Food Facts
+      matches auto-add with an Undo).
+- [x] "Fix"/report action to correct an item and its saved barcode mapping (reuses the GitHub
+      contribution workflow), fixing mislabels like the Stella/Bud Light mix-up.
+- [ ] Ongoing: grow the *verified barcode* catalog (`public/product-db.json`) from real scans /
+      user-submitted photos — can't be fabricated.
 
 ## Phase 2 — Automate entry II: camera OCR fallback
 
