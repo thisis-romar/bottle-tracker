@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
-import { NotFoundException } from '@zxing/library'
+import { NotFoundException, BarcodeFormat, DecodeHintType } from '@zxing/library'
 import { db } from '../db'
 import { calculateRefundCents } from '../utils/refund'
 import { lookupBarcode, type OFFResult } from '../utils/offLookup'
@@ -50,6 +50,8 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
   const [contributeData, setContributeData] = useState<ContributeData | null>(null)
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualCode, setManualCode] = useState('')
 
   const addToast = (text: string, type: Toast['type'] = 'success', onUndo?: () => void) => {
     const id = Date.now()
@@ -193,6 +195,19 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     }
   }
 
+  // Manual fallback for codes the camera can't read — reuses the full scan pipeline
+  const submitManualCode = async () => {
+    const code = manualCode.replace(/\s/g, '')
+    if (!/^\d{6,14}$/.test(code)) {
+      addToast('Enter the 12–13 digit number under the barcode', 'info')
+      return
+    }
+    setManualOpen(false)
+    setManualCode('')
+    lastScanRef.current = null // bypass the duplicate-scan debounce for manual entry
+    await handleScannedCode(code)
+  }
+
   // ─── Camera setup ────────────────────────────────────────────────────────
 
   const startScanner = useCallback(async () => {
@@ -208,11 +223,19 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     setErrorMsg('')
 
     try {
-      const reader = new BrowserMultiFormatReader()
+      // Tune for retail product barcodes: restrict formats + TRY_HARDER markedly
+      // improves reads on curved/glary/low-light codes.
+      const hints = new Map<DecodeHintType, unknown>()
+      hints.set(DecodeHintType.TRY_HARDER, true)
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.UPC_A, BarcodeFormat.EAN_13, BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_E, BarcodeFormat.CODE_128
+      ])
+      const reader = new BrowserMultiFormatReader(hints)
       readerRef.current = reader
 
       const controls = await reader.decodeFromConstraints(
-        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+        { video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } } },
         videoRef.current,
         (result, err) => {
           if (result) handleScannedCode(result.getText())
@@ -289,6 +312,78 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
         >
           🔦
         </button>
+      )}
+
+      {/* Manual barcode entry — fallback when the camera can't read the code */}
+      {scannerStatus === 'scanning' && !manualOpen && (
+        <button
+          onClick={() => setManualOpen(true)}
+          style={{
+            position: 'absolute', top: 14, left: 14,
+            height: 46, padding: '0 14px', borderRadius: 23,
+            border: 'none', cursor: 'pointer',
+            background: 'rgba(0,0,0,0.45)', color: '#fff',
+            fontSize: 13, fontWeight: 700, display: 'flex',
+            alignItems: 'center', gap: 6,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
+          }}
+        >
+          ⌨️ Enter barcode
+        </button>
+      )}
+
+      {manualOpen && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 60,
+          background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          paddingTop: 'calc(70px + env(safe-area-inset-top, 0px))'
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 14, padding: 18,
+            width: 'min(92%, 360px)', boxShadow: '0 8px 24px rgba(0,0,0,0.4)'
+          }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Enter barcode</div>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
+              Type the digits printed under the barcode.
+            </div>
+            <input
+              value={manualCode}
+              onChange={e => setManualCode(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void submitManualCode() }}
+              inputMode="numeric"
+              autoFocus
+              placeholder="e.g. 062067382215"
+              style={{
+                width: '100%', padding: '11px 12px', borderRadius: 8,
+                border: '1.5px solid #e5e7eb', fontSize: 16, outline: 'none',
+                background: '#f9fafb', marginBottom: 14, WebkitAppearance: 'none'
+              }}
+            />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setManualOpen(false); setManualCode('') }}
+                style={{
+                  flex: 1, padding: '11px', borderRadius: 10,
+                  border: '1.5px solid #e5e7eb', background: '#fff',
+                  color: '#374151', fontSize: 14, fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void submitManualCode()}
+                style={{
+                  flex: 2, padding: '11px', borderRadius: 10, border: 'none',
+                  background: '#15803d', color: '#fff', fontSize: 14, fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Look up ✓
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Starting */}
