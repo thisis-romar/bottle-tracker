@@ -1,0 +1,332 @@
+import { useEffect, useRef, useState, useCallback } from 'react'
+import { BrowserMultiFormatReader, type IScannerControls } from '@zxing/browser'
+import { NotFoundException } from '@zxing/library'
+import { db } from '../db'
+import { calculateRefundCents } from '../utils/refund'
+import { lookupBarcode, type OFFResult } from '../utils/offLookup'
+import { playBeep, primeAudio } from '../utils/beep'
+import UnknownBarcodeModal, { type UnknownBarcodeResult } from '../components/UnknownBarcodeModal'
+import ContributePrompt from '../components/ContributePrompt'
+import type { Material } from '../db'
+
+interface Props {
+  sessionKey: string
+  onItemAdded: () => void
+  soundEnabled?: boolean
+  vibrateEnabled?: boolean
+}
+
+interface Toast {
+  id: number
+  text: string
+  type: 'success' | 'info'
+}
+
+type LookupState =
+  | { phase: 'idle' }
+  | { phase: 'looking-up'; barcode: string }
+  | { phase: 'show-modal'; barcode: string; offResult: OFFResult | null }
+
+interface ContributeData {
+  barcode: string
+  name: string
+  material: Material
+  volumeMl: number
+  refundCents: 10 | 20
+}
+
+export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true }: Props) {
+  const videoRef    = useRef<HTMLVideoElement>(null)
+  const readerRef   = useRef<BrowserMultiFormatReader | null>(null)
+  const controlsRef = useRef<IScannerControls | null>(null)
+  const lastScanRef = useRef<{ code: string; time: number } | null>(null)
+
+  const [scannerStatus, setScannerStatus] = useState<'starting' | 'scanning' | 'error'>('starting')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [lookup, setLookup] = useState<LookupState>({ phase: 'idle' })
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const [contributeData, setContributeData] = useState<ContributeData | null>(null)
+
+  const addToast = (text: string, type: Toast['type'] = 'success') => {
+    const id = Date.now()
+    setToasts(prev => [...prev.slice(-2), { id, text, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2200)
+  }
+
+  // ─── Core scan handler ───────────────────────────────────────────────────
+
+  const handleScannedCode = useCallback(async (code: string) => {
+    const now = Date.now()
+    if (lastScanRef.current?.code === code && now - lastScanRef.current.time < 2000) return
+    lastScanRef.current = { code, time: now }
+
+    // Don't accept new scans while a lookup/modal is active
+    if (lookup.phase !== 'idle') return
+
+    if (soundEnabled) void playBeep()
+    if (vibrateEnabled && 'vibrate' in navigator) navigator.vibrate([80])
+
+    // 1. Check local DB first — fastest path, works offline
+    const known = await db.barcodes.get(code)
+    if (known) {
+      await addItemToSession(code, known.name, known.material, known.volumeMl, known.refundCents)
+      addToast(`✓ ${known.name ?? `${known.material} ${known.volumeMl}mL`}`)
+      onItemAdded()
+      return
+    }
+
+    // 2. Unknown barcode — start OFF lookup
+    setLookup({ phase: 'looking-up', barcode: code })
+    addToast('🔍 Looking up…', 'info')
+
+    const offResult = await lookupBarcode(code)
+
+    setToasts([]) // clear the "looking up" toast
+    setLookup({ phase: 'show-modal', barcode: code, offResult })
+  }, [lookup, onItemAdded, sessionKey])  // sessionKey via closure in addItemToSession
+
+  async function addItemToSession(
+    barcode: string,
+    name: string | undefined,
+    material: Parameters<typeof calculateRefundCents>[0],
+    volumeMl: number,
+    refundCents: 10 | 20
+  ) {
+    const existing = await db.items
+      .where('sessionKey').equals(sessionKey)
+      .filter(i => i.barcode === barcode)
+      .first()
+
+    if (existing?.id != null) {
+      await db.items.update(existing.id, { quantity: existing.quantity + 1 })
+    } else {
+      await db.items.add({
+        barcode, name, material, volumeMl, quantity: 1,
+        refundCents, scannedAt: new Date().toISOString(), sessionKey
+      })
+    }
+  }
+
+  // ─── Modal save handler ─────────────────────────────────────────────────
+
+  const handleSaveUnknown = async (result: UnknownBarcodeResult) => {
+    if (lookup.phase !== 'show-modal') return
+    const { barcode } = lookup
+
+    // Persist barcode→product mapping so future scans are instant
+    await db.barcodes.put({
+      barcode,
+      name: result.name || undefined,
+      material: result.material,
+      volumeMl: result.volumeMl,
+      refundCents: result.refundCents,
+      updatedAt: new Date().toISOString()
+    })
+
+    await addItemToSession(barcode, result.name || undefined, result.material, result.volumeMl, result.refundCents)
+    addToast(`✓ ${result.name || `${result.material} ${result.volumeMl}mL`}`)
+    setLookup({ phase: 'idle' })
+    onItemAdded()
+
+    // Show contribute prompt for newly-learned barcodes
+    setContributeData({
+      barcode,
+      name: result.name || `${result.material} ${result.volumeMl} mL`,
+      material: result.material,
+      volumeMl: result.volumeMl,
+      refundCents: result.refundCents
+    })
+  }
+
+  const handleSkipUnknown = () => setLookup({ phase: 'idle' })
+
+  // ─── Camera setup ────────────────────────────────────────────────────────
+
+  const startScanner = useCallback(async () => {
+    if (!videoRef.current) return
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setErrorMsg('Camera not available. Use Chrome on Android or Safari on iOS (HTTPS required).')
+      setScannerStatus('error')
+      return
+    }
+
+    setScannerStatus('starting')
+    setErrorMsg('')
+
+    try {
+      const reader = new BrowserMultiFormatReader()
+      readerRef.current = reader
+
+      const controls = await reader.decodeFromConstraints(
+        { video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } },
+        videoRef.current,
+        (result, err) => {
+          if (result) handleScannedCode(result.getText())
+          if (err && !(err instanceof NotFoundException)) console.warn('[scanner]', err)
+        }
+      )
+      controlsRef.current = controls
+      setScannerStatus('scanning')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setErrorMsg(
+        msg.includes('Permission') || msg.includes('NotAllowed')
+          ? 'Camera permission denied. Please allow camera access and try again.'
+          : msg.includes('NotFound') || msg.includes('Devices')
+          ? 'No camera found on this device.'
+          : `Camera error: ${msg}`
+      )
+      setScannerStatus('error')
+    }
+  }, [handleScannedCode])
+
+  useEffect(() => {
+    startScanner()
+    return () => {
+      controlsRef.current?.stop()
+      controlsRef.current = null
+    }
+  }, [startScanner])
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+
+  const showModal = lookup.phase === 'show-modal'
+  const lookingUp = lookup.phase === 'looking-up'
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#000', position: 'relative', overflow: 'hidden' }}>
+
+      {/* Live video */}
+      <video
+        ref={videoRef}
+        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+        muted playsInline autoPlay
+        onClick={primeAudio}
+      />
+
+      {/* Scan guide */}
+      {scannerStatus === 'scanning' && !lookingUp && (
+        <ScanGuide />
+      )}
+
+      {/* Starting */}
+      {scannerStatus === 'starting' && (
+        <CentredOverlay>
+          <div style={{ fontSize: 36, animation: 'pulse 1.2s infinite' }}>📷</div>
+          <div style={{ fontSize: 14, color: '#fff', marginTop: 10 }}>Starting camera…</div>
+        </CentredOverlay>
+      )}
+
+      {/* Looking up overlay — replaces scan guide while request is in flight */}
+      {lookingUp && (
+        <CentredOverlay>
+          <div style={{ fontSize: 32, animation: 'pulse 1s infinite' }}>🔍</div>
+          <div style={{ fontSize: 15, color: '#fff', marginTop: 12, fontWeight: 600 }}>
+            Looking up barcode…
+          </div>
+          <div style={{ fontSize: 12, color: '#d1d5db', marginTop: 6 }}>
+            Checking Open Food Facts
+          </div>
+        </CentredOverlay>
+      )}
+
+      {/* Error */}
+      {scannerStatus === 'error' && (
+        <CentredOverlay>
+          <div style={{ fontSize: 44 }}>🚫</div>
+          <div style={{ fontSize: 15, color: '#fff', textAlign: 'center', marginTop: 12, lineHeight: 1.5, padding: '0 24px' }}>
+            {errorMsg}
+          </div>
+          <button
+            onClick={startScanner}
+            style={{
+              marginTop: 20, padding: '11px 28px',
+              borderRadius: 10, background: '#15803d',
+              color: '#fff', border: 'none',
+              fontSize: 15, fontWeight: 700, cursor: 'pointer'
+            }}
+          >
+            Try Again
+          </button>
+        </CentredOverlay>
+      )}
+
+      {/* Toasts */}
+      <div style={{
+        position: 'absolute', bottom: 20, left: 0, right: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        gap: 8, pointerEvents: 'none'
+      }}>
+        {toasts.map(t => (
+          <div key={t.id} className="scan-toast" style={{
+            background: t.type === 'info' ? '#1e293b' : '#15803d',
+            color: '#fff', padding: '9px 22px',
+            borderRadius: 24, fontSize: 14, fontWeight: 700,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+          }}>
+            {t.text}
+          </div>
+        ))}
+      </div>
+
+      {/* Modal */}
+      {showModal && lookup.phase === 'show-modal' && (
+        <UnknownBarcodeModal
+          barcode={lookup.barcode}
+          offResult={lookup.offResult}
+          onSave={handleSaveUnknown}
+          onSkip={handleSkipUnknown}
+        />
+      )}
+
+      {/* Contribute prompt — shown after saving a new barcode */}
+      {contributeData && (
+        <ContributePrompt
+          {...contributeData}
+          onDismiss={() => setContributeData(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+function ScanGuide() {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0, pointerEvents: 'none',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center'
+    }}>
+      <div style={{ position: 'relative' }}>
+        <div style={{ width: 280, height: 160, borderRadius: 12, boxShadow: '0 0 0 9999px rgba(0,0,0,0.42)' }} />
+        {/* Corner marks */}
+        {(['tl','tr','bl','br'] as const).map(pos => (
+          <div key={pos} style={{
+            position: 'absolute', width: 24, height: 24, borderColor: '#4ade80', borderStyle: 'solid', borderWidth: 0,
+            ...(pos==='tl' ? {top:0,left:0,borderTopWidth:3,borderLeftWidth:3,borderTopLeftRadius:4}:{}),
+            ...(pos==='tr' ? {top:0,right:0,borderTopWidth:3,borderRightWidth:3,borderTopRightRadius:4}:{}),
+            ...(pos==='bl' ? {bottom:0,left:0,borderBottomWidth:3,borderLeftWidth:3,borderBottomLeftRadius:4}:{}),
+            ...(pos==='br' ? {bottom:0,right:0,borderBottomWidth:3,borderRightWidth:3,borderBottomRightRadius:4}:{}),
+          }} />
+        ))}
+      </div>
+      <div style={{ marginTop: 14, color: '#a3e635', fontSize: 13, fontWeight: 600, letterSpacing: 0.3, textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
+        Aim at barcode
+      </div>
+    </div>
+  )
+}
+
+function CentredOverlay({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      position: 'absolute', inset: 0,
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.75)'
+    }}>
+      {children}
+    </div>
+  )
+}

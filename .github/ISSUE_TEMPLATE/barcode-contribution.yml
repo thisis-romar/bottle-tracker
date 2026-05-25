@@ -1,0 +1,92 @@
+name: Barcode Contribution
+description: Submit a verified Ontario deposit container barcode to the community database
+title: "[barcode] "
+labels: ["barcode-contribution"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Only submit barcodes you have physically scanned
+        Do not submit barcodes from memory, internet searches, or other apps.
+        All submissions are automatically check-digit validated before merging.
+
+  - type: input
+    id: barcode
+    attributes:
+      label: Barcode
+      description: The full barcode number exactly as scanned (UPC-A 12 digits or EAN-13 13 digits)
+      placeholder: "062067382215"
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: Product Name
+      description: Brand + variant + size (e.g. "Coors Light 355 mL")
+      placeholder: "Coors Light 355 mL"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: material
+    attributes:
+      label: Material
+      options:
+        - aluminum
+        - glass
+        - plastic
+        - tetra
+    validations:
+      required: true
+
+  - type: input
+    id: volumeMl
+    attributes:
+      label: Volume (mL)
+      description: Exact volume in millilitres as printed on the container
+      placeholder: "355"
+    validations:
+      required: true
+
+  - type: input
+    id: brand
+    attributes:
+      label: Brand
+      placeholder: "Coors Light"
+
+  - type: input
+    id: brewer
+    attributes:
+      label: Brewer / Producer
+      placeholder: "Molson Coors"
+
+  - type: input
+    id: abv
+    attributes:
+      label: ABV (%)
+      placeholder: "5.0"
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Beverage Type
+      options:
+        - beer
+        - cider
+        - cooler/rtd
+        - wine
+        - spirits
+        - non-alcoholic
+
+  - type: checkboxes
+    id: verification
+    attributes:
+      label: Verification
+      options:
+        - label: I physically scanned this barcode from the actual container
+          required: true
+        - label: The product is sold in Ontario and qualifies for ODRP deposit return
+          required: true
+        - label: The volume and material I entered match what is printed on the container
+          required: true

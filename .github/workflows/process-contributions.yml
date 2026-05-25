@@ -1,0 +1,98 @@
+name: Process Barcode Contribution
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  validate-and-pr:
+    # Only runs when the barcode-contribution label is added
+    if: github.event.label.name == 'barcode-contribution'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Save issue body to file
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: echo "$ISSUE_BODY" > /tmp/issue-body.txt
+
+      - name: Validate barcode contribution
+        id: validate
+        run: |
+          node scripts/validate-contribution.mjs /tmp/issue-body.txt contributions
+          echo "valid=true" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Comment — validation failed
+        if: steps.validate.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## ❌ Validation Failed\n\nThe barcode contribution could not be validated automatically. Common reasons:\n\n- **Check digit mismatch** — the barcode digits may have a typo\n- **Wrong length** — UPC-A must be 12 digits, EAN-13 must be 13 digits\n- **Missing required fields** — name, material, or volume\n\nPlease re-scan the barcode directly from the container and resubmit.\n\nIf you believe this is an error, a maintainer will review manually.`
+            })
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              name: 'barcode-contribution'
+            }).catch(() => {})
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              labels: ['validation-failed']
+            })
+
+      - name: Merge contribution into product-db.json
+        if: steps.validate.outcome == 'success'
+        run: node scripts/merge-contributions.mjs
+
+      - name: Clean up contribution file
+        if: steps.validate.outcome == 'success'
+        run: git rm contributions/*.json 2>/dev/null || true
+
+      - name: Create Pull Request
+        if: steps.validate.outcome == 'success'
+        uses: peter-evans/create-pull-request@v6
+        id: cpr
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "feat(db): add barcode from issue #${{ github.event.issue.number }}"
+          branch: "barcode/issue-${{ github.event.issue.number }}"
+          title: "Add barcode from #${{ github.event.issue.number }}"
+          body: |
+            Automatically generated from barcode contribution issue #${{ github.event.issue.number }}.
+
+            All check-digit validation passed. The `product-db.json` version has been incremented — connected apps will update automatically on next load.
+
+            Closes #${{ github.event.issue.number }}
+          labels: "auto-barcode"
+
+      - name: Comment — PR created
+        if: steps.validate.outcome == 'success' && steps.cpr.outputs.pull-request-url
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `## ✅ Validation Passed\n\nYour barcode contribution passed automated check-digit validation.\n\nA pull request has been opened: ${{ steps.cpr.outputs.pull-request-url }}\n\nOnce merged, all connected apps will receive the update automatically on next load. Thank you for contributing! 🍺`
+            })

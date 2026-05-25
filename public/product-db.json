@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "generated": "2025-05-25",
+  "note": "All barcodes in this file have been verified against physical products. Do not add barcodes from memory or web searches — check digits must pass validation and the product must be physically scanned. See CONTRIBUTING.md.",
+  "products": {
+    "062067382215": {
+      "name": "Bud Light 355 mL",
+      "brand": "Bud Light",
+      "brewer": "Labatt",
+      "material": "aluminum",
+      "volumeMl": 355,
+      "abv": 4.0,
+      "type": "beer",
+      "verifiedBy": "photo-scan",
+      "addedDate": "2025-05-25"
+    },
+    "7501064112058": {
+      "name": "Corona Extra 330 mL",
+      "brand": "Corona",
+      "brewer": "Grupo Modelo",
+      "material": "glass",
+      "volumeMl": 330,
+      "abv": 4.6,
+      "type": "beer",
+      "verifiedBy": "checkdigit",
+      "addedDate": "2025-05-25"
+    },
+    "0614141071074": {
+      "name": "Alexander Keith's IPA 341 mL",
+      "brand": "Alexander Keith's",
+      "brewer": "Labatt",
+      "material": "glass",
+      "volumeMl": 341,
+      "abv": 5.0,
+      "type": "beer",
+      "verifiedBy": "checkdigit",
+      "addedDate": "2025-05-25"
+    }
+  }
+}
