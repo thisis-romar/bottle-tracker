@@ -7,6 +7,8 @@ import { lookupBarcode, type OFFResult } from '../utils/offLookup'
 import { playBeep, primeAudio } from '../utils/beep'
 import UnknownBarcodeModal, { type UnknownBarcodeResult } from '../components/UnknownBarcodeModal'
 import ContributePrompt from '../components/ContributePrompt'
+import { gatherProductFacts, type ReconciledFacts } from '../utils/productSources'
+import { captureFrameJpeg } from '../utils/captureFrame'
 import type { Material } from '../db'
 
 interface Props {
@@ -14,6 +16,7 @@ interface Props {
   onItemAdded: () => void
   soundEnabled?: boolean
   vibrateEnabled?: boolean
+  aiDetailsEnabled?: boolean
 }
 
 interface Toast {
@@ -26,7 +29,7 @@ interface Toast {
 type LookupState =
   | { phase: 'idle' }
   | { phase: 'looking-up'; barcode: string }
-  | { phase: 'show-modal'; barcode: string; offResult: OFFResult | null }
+  | { phase: 'show-modal'; barcode: string; offResult: OFFResult | null; reconciled: ReconciledFacts | null }
 
 interface ContributeData {
   barcode: string
@@ -36,7 +39,7 @@ interface ContributeData {
   refundCents: 10 | 20
 }
 
-export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true }: Props) {
+export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true, aiDetailsEnabled = false }: Props) {
   const videoRef    = useRef<HTMLVideoElement>(null)
   const readerRef   = useRef<BrowserMultiFormatReader | null>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
@@ -108,8 +111,17 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       return
     }
 
-    setLookup({ phase: 'show-modal', barcode: code, offResult })
-  }, [lookup, onItemAdded, sessionKey])  // sessionKey via closure in addItemToSession
+    // Optional cross-check: capture the can photo and validate across sources
+    let reconciled: ReconciledFacts | null = null
+    if (aiDetailsEnabled) {
+      addToast('📷 Checking sources…', 'info')
+      const imageJpeg = await captureFrameJpeg(videoRef.current)
+      reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: true, offResult })
+      setToasts([])
+    }
+
+    setLookup({ phase: 'show-modal', barcode: code, offResult, reconciled })
+  }, [lookup, onItemAdded, sessionKey, aiDetailsEnabled])  // sessionKey via closure in addItemToSession
 
   async function addItemToSession(
     barcode: string,
@@ -465,6 +477,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
         <UnknownBarcodeModal
           barcode={lookup.barcode}
           offResult={lookup.offResult}
+          reconciled={lookup.reconciled}
           onSave={handleSaveUnknown}
           onSkip={handleSkipUnknown}
         />

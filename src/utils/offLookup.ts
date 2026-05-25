@@ -8,6 +8,7 @@
  */
 
 import type { Material } from '../db'
+import type { Nutrition } from './productSources/types'
 import { calculateRefundCents } from './refund'
 
 export interface OFFResult {
@@ -18,9 +19,21 @@ export interface OFFResult {
   refundCents?: 10 | 20
   /** Brand name from OFF, used when product_name is missing */
   brand?: string
+  /** alcohol % by volume, when present */
+  abv?: number
+  /** nutrition facts, when present (sparse for alcohol) */
+  nutrition?: Nutrition
   /** How well we were able to parse the OFF record */
   confidence: 'full' | 'partial' | 'name-only' | 'miss'
   source: 'off'
+}
+
+interface OFFNutriments {
+  'energy-kcal_100g'?: number
+  'energy-kcal_serving'?: number
+  carbohydrates_100g?: number
+  sugars_100g?: number
+  alcohol_100g?: number
 }
 
 interface OFFProductResponse {
@@ -33,6 +46,8 @@ interface OFFProductResponse {
     packaging?: string
     packaging_tags?: string[]
     categories_tags?: string[]
+    nutriments?: OFFNutriments
+    alcohol_value?: number
   }
 }
 
@@ -44,7 +59,7 @@ export async function lookupBarcode(barcode: string): Promise<OFFResult> {
 
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}` +
-      `?fields=product_name,product_name_en,brands,quantity,packaging,packaging_tags,categories_tags`,
+      `?fields=product_name,product_name_en,brands,quantity,packaging,packaging_tags,categories_tags,nutriments,alcohol_value`,
       { signal: controller.signal }
     )
     clearTimeout(timer)
@@ -75,13 +90,30 @@ function parseProduct(p: NonNullable<OFFProductResponse['product']>): OFFResult 
     ? calculateRefundCents(material, volumeMl)
     : undefined
 
+  const nutrition = parseNutrition(p.nutriments, p.alcohol_value)
+  const abv = nutrition?.alcoholPct
+
   const confidence: OFFResult['confidence'] =
     volumeMl && material ? 'full'
     : volumeMl || material ? 'partial'
     : name || brand ? 'name-only'
     : 'miss'
 
-  return { name, brand, volumeMl, material, refundCents, confidence, source: 'off' }
+  return { name, brand, volumeMl, material, refundCents, abv, nutrition, confidence, source: 'off' }
+}
+
+/** Best-effort nutrition extraction; OFF coverage for alcohol is sparse. */
+function parseNutrition(n: OFFNutriments | undefined, alcoholValue: number | undefined): Nutrition | undefined {
+  const num = (v: number | undefined) =>
+    typeof v === 'number' && !Number.isNaN(v) ? v : undefined
+
+  const nutrition: Nutrition = {
+    energyKcal: num(n?.['energy-kcal_100g'] ?? n?.['energy-kcal_serving']),
+    carbsG: num(n?.carbohydrates_100g),
+    sugarsG: num(n?.sugars_100g),
+    alcoholPct: num(n?.alcohol_100g ?? alcoholValue),
+  }
+  return Object.values(nutrition).some(v => v !== undefined) ? nutrition : undefined
 }
 
 // ─── Volume parsing ──────────────────────────────────────────────────────────

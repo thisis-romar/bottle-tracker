@@ -100,6 +100,7 @@ export default function App() {
             onItemAdded={() => {}}
             soundEnabled={settings.soundEnabled}
             vibrateEnabled={settings.vibrateEnabled}
+            aiDetailsEnabled={settings.aiDetailsEnabled}
           />
         )}
         {tab === 'manual' && (

@@ -3,13 +3,16 @@ import { useState, useCallback } from 'react'
 export interface AppSettings {
   soundEnabled: boolean
   vibrateEnabled: boolean
+  /** Capture the can photo and cross-validate details across sources (experimental, mock). */
+  aiDetailsEnabled: boolean
 }
 
 const SETTINGS_KEY = 'bottle_app_settings'
 
 const DEFAULTS: AppSettings = {
   soundEnabled: true,
-  vibrateEnabled: true
+  vibrateEnabled: true,
+  aiDetailsEnabled: false
 }
 
 function load(): AppSettings {

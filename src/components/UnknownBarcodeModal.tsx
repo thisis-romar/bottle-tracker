@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { calculateRefundCents, formatCents, refundRuleLabel } from '../utils/refund'
 import type { Material } from '../db'
 import type { OFFResult } from '../utils/offLookup'
+import { SOURCE_LABELS, type ReconciledFacts, type FieldConsensus, type SourceId } from '../utils/productSources'
 
 export interface UnknownBarcodeResult {
   name: string
@@ -14,6 +15,8 @@ interface Props {
   barcode: string
   /** Pre-populated data from Open Food Facts (may be partial) */
   offResult?: OFFResult | null
+  /** Cross-validated facts from multiple sources (present when "cross-check" is on) */
+  reconciled?: ReconciledFacts | null
   onSave: (result: UnknownBarcodeResult) => void
   onSkip: () => void
 }
@@ -27,11 +30,11 @@ const MATERIAL_OPTIONS: { value: Material; label: string; icon: string }[] = [
   { value: 'tetra',    label: 'Tetra',   icon: '🧃' },
 ]
 
-export default function UnknownBarcodeModal({ barcode, offResult, onSave, onSkip }: Props) {
-  // Initialise from OFF prefill when available
-  const [name,     setName]     = useState(offResult?.name ?? offResult?.brand ?? '')
-  const [material, setMaterial] = useState<Material>(offResult?.material ?? 'aluminum')
-  const [volumeMl, setVolumeMl] = useState(offResult?.volumeMl ?? 355)
+export default function UnknownBarcodeModal({ barcode, offResult, reconciled, onSave, onSkip }: Props) {
+  // Initialise from the reconciled winner when available, else OFF prefill
+  const [name,     setName]     = useState(reconciled?.name.value ?? offResult?.name ?? offResult?.brand ?? '')
+  const [material, setMaterial] = useState<Material>(reconciled?.material.value ?? offResult?.material ?? 'aluminum')
+  const [volumeMl, setVolumeMl] = useState(reconciled?.volumeMl.value ?? offResult?.volumeMl ?? 355)
   const [customVol, setCustomVol] = useState('')
 
   const refundCents = calculateRefundCents(material, volumeMl)
@@ -110,6 +113,9 @@ export default function UnknownBarcodeModal({ barcode, offResult, onSave, onSkip
               : '⚠️ Only the product name was found — please fill in size and type.'}
           </div>
         )}
+
+        {/* Multi-source cross-check */}
+        {reconciled && <SourcesPanel reconciled={reconciled} />}
 
         {/* Name */}
         <label style={labelStyle}>Product name (optional)</label>
@@ -213,6 +219,82 @@ export default function UnknownBarcodeModal({ barcode, offResult, onSave, onSkip
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+const SHORT_LABELS: Record<SourceId, string> = {
+  localDb: 'DB', off: 'OFF', lcbo: 'LCBO', vision: 'AI',
+}
+
+function SourcesPanel({ reconciled }: { reconciled: ReconciledFacts }) {
+  const n = reconciled.nutrition
+  const nutritionRows = ([
+    { label: 'Calories', field: n.energyKcal, unit: ' kcal' },
+    { label: 'Carbs',    field: n.carbsG,     unit: ' g' },
+    { label: 'Sugars',   field: n.sugarsG,    unit: ' g' },
+    { label: 'Alcohol',  field: n.alcoholPct, unit: '%' },
+  ] as { label: string; field: FieldConsensus<number>; unit: string }[])
+    .filter(r => r.field.value !== undefined)
+
+  const conflicts = [
+    reconciled.name.conflict && 'name',
+    reconciled.material.conflict && 'type',
+    reconciled.volumeMl.conflict && 'size',
+  ].filter(Boolean) as string[]
+
+  const pct = Math.round(reconciled.confidence * 100)
+  const pctColor = pct >= 70 ? '#15803d' : pct >= 40 ? '#d97706' : '#9ca3af'
+
+  return (
+    <div style={{
+      background: '#f8fafc', border: '1px solid #e5e7eb',
+      borderRadius: 10, padding: '10px 12px', marginBottom: 14
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: '#374151' }}>Cross-checked sources</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: pctColor }}>{pct}% match</span>
+      </div>
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {reconciled.sources.map(s => (
+          <span key={s.source} title={s.note ?? ''} style={{
+            fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12,
+            background: s.ok ? '#dcfce7' : '#f3f4f6',
+            color: s.ok ? '#15803d' : '#9ca3af'
+          }}>
+            {s.ok ? '✓' : '–'} {SOURCE_LABELS[s.source]}
+          </span>
+        ))}
+      </div>
+
+      {conflicts.length > 0 && (
+        <div style={{ fontSize: 11, color: '#b45309', marginTop: 8 }}>
+          ⚠️ Sources disagree on {conflicts.join(', ')} — please confirm below.
+        </div>
+      )}
+
+      {nutritionRows.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 4 }}>
+            Nutrition (per 100 mL, best-effort)
+          </div>
+          {nutritionRows.map(r => (
+            <div key={r.label} style={{
+              display: 'flex', justifyContent: 'space-between',
+              fontSize: 12, color: '#374151', padding: '2px 0'
+            }}>
+              <span>{r.label}</span>
+              <span style={{ fontWeight: 600 }}>
+                {r.field.value}{r.unit}
+                <span style={{ fontSize: 9, color: '#9ca3af', fontWeight: 500 }}>
+                  {' · '}{r.field.sources.map(s => SHORT_LABELS[s]).join(' ')}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

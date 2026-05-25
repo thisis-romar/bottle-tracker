@@ -60,6 +60,13 @@ export default function SettingsSheet({
           value={settings.vibrateEnabled}
           onChange={v => onSettingsUpdate({ vibrateEnabled: v })}
         />
+        <ToggleRow
+          label="Cross-check can details"
+          detail="On unknown barcodes, read the can photo and validate size/type/nutrition across sources (experimental — uses a mock extractor)"
+          icon="📷"
+          value={settings.aiDetailsEnabled}
+          onChange={v => onSettingsUpdate({ aiDetailsEnabled: v })}
+        />
 
         {/* ── Google Sheets section ─────────────────────── */}
         <SectionHeader>Google Sheets</SectionHeader>
