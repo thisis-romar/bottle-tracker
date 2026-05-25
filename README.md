@@ -1,5 +1,7 @@
 # Ontario Bottle Return Tracker
 
+[![CI](https://github.com/thisis-romar/bottle-tracker/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/thisis-romar/bottle-tracker/actions/workflows/ci.yml)
+
 A local-first PWA for tracking Ontario ODRP deposit containers.
 Runs offline, installs to your phone's home screen like a native app.
 
