@@ -20,6 +20,7 @@ interface Toast {
   id: number
   text: string
   type: 'success' | 'info'
+  onUndo?: () => void
 }
 
 type LookupState =
@@ -50,10 +51,10 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
   const [torchOn, setTorchOn] = useState(false)
   const [torchSupported, setTorchSupported] = useState(false)
 
-  const addToast = (text: string, type: Toast['type'] = 'success') => {
+  const addToast = (text: string, type: Toast['type'] = 'success', onUndo?: () => void) => {
     const id = Date.now()
-    setToasts(prev => [...prev.slice(-2), { id, text, type }])
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 2200)
+    setToasts(prev => [...prev.slice(-2), { id, text, type, onUndo }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), onUndo ? 5000 : 2200)
   }
 
   // ─── Core scan handler ───────────────────────────────────────────────────
@@ -85,6 +86,26 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     const offResult = await lookupBarcode(code)
 
     setToasts([]) // clear the "looking up" toast
+
+    // High-confidence OFF match — auto-add and skip the confirm modal
+    if (offResult.confidence === 'full' && offResult.material && offResult.volumeMl && offResult.refundCents) {
+      const { material, volumeMl, refundCents } = offResult
+      const name = offResult.name ?? offResult.brand
+      await db.barcodes.put({
+        barcode: code, name, material, volumeMl, refundCents, updatedAt: new Date().toISOString()
+      })
+      const added = await addItemToSession(code, name, material, volumeMl, refundCents)
+      onItemAdded()
+      addToast(`✓ ${name ?? `${material} ${volumeMl}mL`}`, 'success', () => void undoAutoAdd(code, added))
+      setContributeData({
+        barcode: code,
+        name: name ?? `${material} ${volumeMl} mL`,
+        material, volumeMl, refundCents
+      })
+      setLookup({ phase: 'idle' })
+      return
+    }
+
     setLookup({ phase: 'show-modal', barcode: code, offResult })
   }, [lookup, onItemAdded, sessionKey])  // sessionKey via closure in addItemToSession
 
@@ -94,7 +115,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     material: Parameters<typeof calculateRefundCents>[0],
     volumeMl: number,
     refundCents: 10 | 20
-  ) {
+  ): Promise<{ id: number; wasNew: boolean; prevQuantity: number }> {
     const existing = await db.items
       .where('sessionKey').equals(sessionKey)
       .filter(i => i.barcode === barcode)
@@ -102,12 +123,29 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
 
     if (existing?.id != null) {
       await db.items.update(existing.id, { quantity: existing.quantity + 1 })
-    } else {
-      await db.items.add({
-        barcode, name, material, volumeMl, quantity: 1,
-        refundCents, scannedAt: new Date().toISOString(), sessionKey
-      })
+      return { id: existing.id, wasNew: false, prevQuantity: existing.quantity }
     }
+    const id = await db.items.add({
+      barcode, name, material, volumeMl, quantity: 1,
+      refundCents, scannedAt: new Date().toISOString(), sessionKey
+    }) as number
+    return { id, wasNew: true, prevQuantity: 0 }
+  }
+
+  // Reverts an OFF auto-add: restores the item and removes the just-learned mapping
+  const undoAutoAdd = async (
+    barcode: string,
+    added: { id: number; wasNew: boolean; prevQuantity: number }
+  ) => {
+    if (added.wasNew) {
+      await db.items.delete(added.id)
+    } else {
+      await db.items.update(added.id, { quantity: added.prevQuantity })
+    }
+    await db.barcodes.delete(barcode)
+    setToasts([])
+    setContributeData(null)
+    onItemAdded()
   }
 
   // ─── Modal save handler ─────────────────────────────────────────────────
@@ -306,9 +344,23 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
             background: t.type === 'info' ? '#1e293b' : '#15803d',
             color: '#fff', padding: '9px 22px',
             borderRadius: 24, fontSize: 14, fontWeight: 700,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', gap: 12,
+            pointerEvents: t.onUndo ? 'auto' : 'none'
           }}>
-            {t.text}
+            <span>{t.text}</span>
+            {t.onUndo && (
+              <button
+                onClick={t.onUndo}
+                style={{
+                  background: 'rgba(255,255,255,0.22)', border: 'none', color: '#fff',
+                  borderRadius: 14, padding: '4px 12px', fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Undo
+              </button>
+            )}
           </div>
         ))}
       </div>

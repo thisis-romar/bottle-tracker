@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { db } from '../db'
 import { calculateRefundCents, formatCents, refundRuleLabel } from '../utils/refund'
+import { PRODUCT_PROFILES, type ProductProfile } from '../data/ontarioSeed'
 import type { Material } from '../db'
 
 interface Props {
@@ -24,6 +25,11 @@ export default function ManualEntryScreen({ sessionKey, onItemAdded }: Props) {
   const [quantity, setQuantity] = useState(1)
   const [name, setName] = useState('')
   const [added, setAdded] = useState(false)
+  const [query, setQuery] = useState('')
+
+  const matches = query.trim()
+    ? PRODUCT_PROFILES.filter(p => p.name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, 8)
+    : []
 
   const refundCents = calculateRefundCents(material, volumeMl)
   const total = refundCents * quantity
@@ -58,11 +64,49 @@ export default function ManualEntryScreen({ sessionKey, onItemAdded }: Props) {
     if (!isNaN(n) && n > 0) setVolumeMl(n)
   }
 
+  const handlePick = (p: ProductProfile) => {
+    setMaterial(p.material)
+    setVolumeMl(p.volumeMl)
+    setCustomVol('')
+    setName(/\d/.test(p.name) ? p.name : `${p.name} ${p.volumeMl} mL`)
+    setQuery('')
+  }
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '16px' }}>
       <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 18, color: '#111827' }}>
         Manual Entry
       </h2>
+
+      {/* Quick product search — auto-fills type + size + name */}
+      <label style={labelStyle}>Quick add</label>
+      <input
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        style={inputStyle}
+        placeholder="Search products (e.g. Coors, White Claw, Tequila)…"
+      />
+      {matches.length > 0 && (
+        <div style={{ marginTop: -8, marginBottom: 16, border: '1.5px solid #e5e7eb', borderRadius: 10, overflow: 'hidden' }}>
+          {matches.map((p, i) => {
+            const typeLabel = MATERIAL_OPTIONS.find(o => o.value === p.material)?.label ?? p.material
+            return (
+              <button
+                key={`${p.name}-${p.volumeMl}-${i}`}
+                onClick={() => handlePick(p)}
+                style={{
+                  display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between',
+                  gap: 10, padding: '10px 12px', background: '#fff', border: 'none',
+                  borderTop: i === 0 ? 'none' : '1px solid #f3f4f6', cursor: 'pointer', textAlign: 'left'
+                }}
+              >
+                <span style={{ fontSize: 14, fontWeight: 600, color: '#111827' }}>{p.name}</span>
+                <span style={{ fontSize: 12, color: '#6b7280', flexShrink: 0 }}>{p.volumeMl} mL · {typeLabel}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {/* Container type */}
       <label style={labelStyle}>Container type</label>

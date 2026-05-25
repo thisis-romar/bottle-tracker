@@ -101,4 +101,54 @@ export const PRODUCT_PROFILES: ProductProfile[] = [
   { name: 'Whisky 750 mL',        material: 'glass',    volumeMl: 750  },
   { name: 'Rum 750 mL',           material: 'glass',    volumeMl: 750  },
   { name: 'Gin 750 mL',           material: 'glass',    volumeMl: 750  },
+
+  // ── Additional common Ontario SKUs (names/sizes/materials only) ──────────
+  // Beer — cans
+  { name: 'Stella Artois',        material: 'aluminum', volumeMl: 500  },
+  { name: 'Heineken',             material: 'aluminum', volumeMl: 500  },
+  { name: 'Corona Extra',         material: 'aluminum', volumeMl: 355  },
+  { name: 'Sapporo',              material: 'aluminum', volumeMl: 500  },
+  { name: 'Asahi Super Dry',      material: 'aluminum', volumeMl: 500  },
+  { name: 'Steam Whistle Pilsner',material: 'aluminum', volumeMl: 355  },
+  { name: 'Mill Street Organic',  material: 'aluminum', volumeMl: 473  },
+  { name: 'Muskoka Cream Ale',    material: 'aluminum', volumeMl: 473  },
+  { name: 'Creemore Springs',     material: 'aluminum', volumeMl: 473  },
+  { name: 'Collective Arts',      material: 'aluminum', volumeMl: 473  },
+  { name: 'Busch',                material: 'aluminum', volumeMl: 355  },
+  { name: 'Pabst Blue Ribbon',    material: 'aluminum', volumeMl: 473  },
+  { name: 'Old Milwaukee',        material: 'aluminum', volumeMl: 355  },
+
+  // Beer — glass
+  { name: 'Budweiser',            material: 'glass',    volumeMl: 341  },
+  { name: 'Bud Light',            material: 'glass',    volumeMl: 341  },
+  { name: 'Sleeman Original',     material: 'glass',    volumeMl: 341  },
+  { name: 'Steam Whistle Pilsner',material: 'glass',    volumeMl: 341  },
+
+  // Seltzers / RTD
+  { name: 'White Claw',           material: 'aluminum', volumeMl: 473  },
+  { name: 'Truly Hard Seltzer',   material: 'aluminum', volumeMl: 473  },
+  { name: 'Nutrl Vodka Soda',     material: 'aluminum', volumeMl: 473  },
+  { name: 'Cottage Springs',      material: 'aluminum', volumeMl: 355  },
+  { name: 'Vizzy Hard Seltzer',   material: 'aluminum', volumeMl: 355  },
+  { name: 'Smirnoff Ice',         material: 'glass',    volumeMl: 330  },
+  { name: 'Palm Bay',             material: 'aluminum', volumeMl: 473  },
+
+  // Cider
+  { name: 'Angry Orchard',        material: 'glass',    volumeMl: 473  },
+  { name: 'Thornbury Cider',      material: 'aluminum', volumeMl: 473  },
+  { name: 'Strongbow Original',   material: 'glass',    volumeMl: 500  },
+
+  // Wine
+  { name: 'Champagne',            material: 'glass',    volumeMl: 750  },
+  { name: 'Prosecco',             material: 'glass',    volumeMl: 750  },
+  { name: 'Wine (375 mL)',        material: 'glass',    volumeMl: 375  },
+  { name: 'Wine (4 L box)',       material: 'tetra',    volumeMl: 4000 },
+
+  // Spirits
+  { name: 'Tequila 750 mL',       material: 'glass',    volumeMl: 750  },
+  { name: 'Liqueur 750 mL',       material: 'glass',    volumeMl: 750  },
+  { name: 'Brandy 750 mL',        material: 'glass',    volumeMl: 750  },
+  { name: 'Vodka 1.14 L',         material: 'glass',    volumeMl: 1140 },
+  { name: 'Whisky 1.14 L',        material: 'glass',    volumeMl: 1140 },
+  { name: 'Rum 1.75 L',           material: 'glass',    volumeMl: 1750 },
 ]

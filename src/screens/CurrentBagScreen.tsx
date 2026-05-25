@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import type { ContainerItem } from '../db'
-import { formatCents } from '../utils/refund'
+import type { ContainerItem, Material } from '../db'
+import { formatCents, calculateRefundCents, refundRuleLabel } from '../utils/refund'
 import { itemsToCSV, downloadCSV } from '../utils/export'
 import { exportSession } from '../utils/googleSheets'
+import { buildContributeUrl } from '../utils/productDb'
 
 interface Props {
   sessionKey: string
@@ -28,6 +29,7 @@ export default function CurrentBagScreen({ sessionKey, onFinishSession, onClearS
   const [confirmClear, setConfirmClear] = useState(false)
   const [finishNote, setFinishNote] = useState('')
   const [showNoteDialog, setShowNoteDialog] = useState(false)
+  const [editItem, setEditItem] = useState<ContainerItem | null>(null)
 
   const items = useLiveQuery(
     () => db.items.where('sessionKey').equals(sessionKey).toArray(),
@@ -152,6 +154,7 @@ export default function CurrentBagScreen({ sessionKey, onFinishSession, onClearS
             onIncrement={() => handleIncrement(item)}
             onDecrement={() => handleDecrement(item)}
             onDelete={() => handleDelete(item)}
+            onEdit={() => setEditItem(item)}
           />
         ))}
         <div style={{ height: 8 }} />
@@ -245,15 +248,21 @@ export default function CurrentBagScreen({ sessionKey, onFinishSession, onClearS
           </div>
         </Overlay>
       )}
+
+      {/* Fix / correct item */}
+      {editItem && (
+        <EditItemSheet item={editItem} onClose={() => setEditItem(null)} />
+      )}
     </div>
   )
 }
 
-function ItemRow({ item, onIncrement, onDecrement, onDelete }: {
+function ItemRow({ item, onIncrement, onDecrement, onDelete, onEdit }: {
   item: ContainerItem
   onIncrement: () => void
   onDecrement: () => void
   onDelete: () => void
+  onEdit: () => void
 }) {
   const icon = MATERIAL_ICON[item.material] ?? '📦'
   const label = item.name ?? `${item.material.charAt(0).toUpperCase() + item.material.slice(1)} ${item.volumeMl} mL`
@@ -290,23 +299,157 @@ function ItemRow({ item, onIncrement, onDecrement, onDelete }: {
         <button onClick={onIncrement} style={qtyBtn}>+</button>
       </div>
 
-      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 52 }}>
+      <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 70 }}>
         <div style={{ fontWeight: 700, fontSize: 15, color: '#15803d' }}>
           {formatCents(subtotal)}
         </div>
-        <button
-          onClick={onDelete}
-          style={{
-            fontSize: 11, color: '#dc2626',
-            background: 'none', border: 'none',
-            cursor: 'pointer', padding: '2px 0'
-          }}
-        >
-          Remove
-        </button>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button
+            onClick={onEdit}
+            style={{
+              fontSize: 11, color: '#2563eb',
+              background: 'none', border: 'none',
+              cursor: 'pointer', padding: '2px 0'
+            }}
+          >
+            Fix
+          </button>
+          <button
+            onClick={onDelete}
+            style={{
+              fontSize: 11, color: '#dc2626',
+              background: 'none', border: 'none',
+              cursor: 'pointer', padding: '2px 0'
+            }}
+          >
+            Remove
+          </button>
+        </div>
       </div>
     </div>
   )
+}
+
+const EDIT_MATERIALS: { value: Material; label: string; icon: string }[] = [
+  { value: 'aluminum', label: 'Can',       icon: '🥤' },
+  { value: 'glass',    label: 'Glass',     icon: '🍾' },
+  { value: 'plastic',  label: 'Plastic',   icon: '🧴' },
+  { value: 'tetra',    label: 'Tetra Pak', icon: '🧃' },
+]
+const EDIT_VOLUMES = [250, 330, 341, 355, 473, 500, 568, 630, 710, 750, 1000, 1500, 2000]
+
+function EditItemSheet({ item, onClose }: { item: ContainerItem; onClose: () => void }) {
+  const [material, setMaterial] = useState<Material>(item.material)
+  const [volumeMl, setVolumeMl] = useState(item.volumeMl)
+  const [customVol, setCustomVol] = useState('')
+  const [name, setName] = useState(item.name ?? '')
+
+  const refundCents = calculateRefundCents(material, volumeMl)
+  const contributeUrl = item.barcode
+    ? buildContributeUrl({ barcode: item.barcode, name: name.trim() || `${material} ${volumeMl} mL`, material, volumeMl })
+    : null
+
+  const handleVol = (v: number) => { setVolumeMl(v); setCustomVol('') }
+  const handleCustom = (raw: string) => {
+    setCustomVol(raw)
+    const n = parseInt(raw, 10)
+    if (!isNaN(n) && n > 0) setVolumeMl(n)
+  }
+
+  const handleSave = async () => {
+    if (item.id != null) {
+      await db.items.update(item.id, { material, volumeMl, refundCents, name: name.trim() || undefined })
+    }
+    // Correct the saved barcode→product mapping so future scans are right
+    if (item.barcode) {
+      await db.barcodes.put({
+        barcode: item.barcode,
+        name: name.trim() || undefined,
+        material, volumeMl, refundCents,
+        updatedAt: new Date().toISOString()
+      })
+    }
+    onClose()
+  }
+
+  return (
+    <Overlay>
+      <div className="slide-up" style={{ ...dialogStyle, maxHeight: '88vh', overflowY: 'auto' }}>
+        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Fix Item</div>
+        <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 14, fontFamily: 'monospace' }}>
+          {item.barcode ?? 'manual entry'}
+        </div>
+
+        <label style={editLabel}>Container type</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8, marginBottom: 14 }}>
+          {EDIT_MATERIALS.map(opt => {
+            const active = material === opt.value
+            return (
+              <button key={opt.value} onClick={() => setMaterial(opt.value)} style={{
+                padding: '10px 4px', borderRadius: 10,
+                border: `2px solid ${active ? '#15803d' : '#e5e7eb'}`,
+                background: active ? '#dcfce7' : '#f9fafb',
+                color: active ? '#15803d' : '#374151',
+                cursor: 'pointer', fontSize: 11, fontWeight: active ? 700 : 400,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3
+              }}>
+                <span style={{ fontSize: 20 }}>{opt.icon}</span>
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <label style={editLabel}>Volume (mL)</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {EDIT_VOLUMES.map(v => {
+            const active = volumeMl === v && !customVol
+            return (
+              <button key={v} onClick={() => handleVol(v)} style={{
+                padding: '5px 10px', borderRadius: 8,
+                border: `2px solid ${active ? '#15803d' : '#e5e7eb'}`,
+                background: active ? '#dcfce7' : '#f9fafb',
+                color: active ? '#15803d' : '#374151',
+                cursor: 'pointer', fontSize: 13, fontWeight: active ? 700 : 400
+              }}>{v}</button>
+            )
+          })}
+        </div>
+        <input type="number" value={customVol} onChange={e => handleCustom(e.target.value)}
+          style={{ ...sheetInputStyle, marginBottom: 14 }} placeholder="Custom mL…" min={1} />
+
+        <label style={editLabel}>Label / name (optional)</label>
+        <input value={name} onChange={e => setName(e.target.value)}
+          style={{ ...sheetInputStyle, marginBottom: 14 }} placeholder="e.g. Stella Artois 500 mL" />
+
+        <div style={{
+          background: '#f0fdf4', borderRadius: 10, padding: '10px 14px', marginBottom: 16,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+        }}>
+          <span style={{ fontSize: 13, color: '#374151' }}>{refundRuleLabel(material)}</span>
+          <span style={{ fontWeight: 700, fontSize: 18, color: '#15803d' }}>{formatCents(refundCents)}</span>
+        </div>
+
+        {contributeUrl && (
+          <a href={contributeUrl} target="_blank" rel="noopener noreferrer" style={{
+            display: 'block', textAlign: 'center', fontSize: 13, color: '#2563eb',
+            marginBottom: 14, textDecoration: 'underline'
+          }}>
+            🌐 Report this correction to the community DB →
+          </a>
+        )}
+
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={onClose} style={cancelBtnStyle}>Cancel</button>
+          <button onClick={handleSave} style={confirmBtnStyle}>Save</button>
+        </div>
+      </div>
+    </Overlay>
+  )
+}
+
+const editLabel: React.CSSProperties = {
+  display: 'block', fontSize: 13, fontWeight: 600, color: '#374151', marginBottom: 7
 }
 
 function Overlay({ children }: { children: React.ReactNode }) {
