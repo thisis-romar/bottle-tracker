@@ -9,6 +9,7 @@ import type { ReconciledFacts, SourceResult, VisionRuntimeConfig } from './types
 export type { ReconciledFacts, SourceResult, SourceId, ProductFacts, Nutrition, FieldConsensus, VisionRuntimeConfig } from './types'
 export { SOURCE_LABELS } from './types'
 export { reconcileFacts } from './reconcile'
+export { extractWithVision } from './vision'
 
 /** Never-reject wrapper so one slow/failing source can't sink the batch. */
 async function safe(p: Promise<SourceResult>, source: SourceResult['source']): Promise<SourceResult> {

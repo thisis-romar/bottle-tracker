@@ -1,6 +1,23 @@
 import { useState } from 'react'
 import type { AppSettings, VisionMode } from '../hooks/useSettings'
 import type { GoogleAuthState } from '../hooks/useGoogleAuth'
+import { extractWithVision } from '../utils/productSources'
+
+/** A small synthetic label image so "Test extraction" exercises the real call without a camera. */
+async function makeTestImage(): Promise<Blob> {
+  const c = document.createElement('canvas')
+  c.width = 480; c.height = 270
+  const ctx = c.getContext('2d')
+  if (!ctx) throw new Error('canvas unavailable')
+  ctx.fillStyle = '#e8e2d0'; ctx.fillRect(0, 0, c.width, c.height)
+  ctx.fillStyle = '#1a1a1a'
+  ctx.font = 'bold 30px sans-serif'; ctx.fillText('Stella Artois', 24, 90)
+  ctx.font = '22px sans-serif'
+  ctx.fillText('355 mL · 5.0% alc/vol', 24, 140)
+  ctx.fillText('Beer · Aluminum can', 24, 178)
+  return new Promise((resolve, reject) =>
+    c.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/jpeg', 0.85))
+}
 
 const VISION_MODES: { id: VisionMode; label: string }[] = [
   { id: 'mock',  label: 'Mock' },
@@ -23,8 +40,29 @@ export default function SettingsSheet({
   settings, onSettingsUpdate, auth, onClearAllData, onClose
 }: Props) {
   const [confirmClear, setConfirmClear] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
 
   const clientIdSet = !!import.meta.env.VITE_GOOGLE_CLIENT_ID
+
+  async function runVisionTest() {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const image = await makeTestImage()
+      const res = await extractWithVision(image, {
+        mode: settings.visionMode,
+        apiKey: settings.anthropicApiKey,
+        proxyUrl: settings.visionProxyUrl,
+      })
+      const head = res.ok ? '✓ Success' : `✗ ${res.note ?? 'failed'}`
+      setTestResult(`${head}\n${JSON.stringify(res.facts, null, 2)}`)
+    } catch (e) {
+      setTestResult(`✗ ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setTesting(false)
+    }
+  }
 
   return (
     <div style={{
@@ -124,6 +162,31 @@ export default function SettingsSheet({
             )}
             {settings.visionMode === 'mock' && (
               <div style={hintText}>Simulated extractor — exercises the pipeline without an API key.</div>
+            )}
+
+            <button
+              onClick={runVisionTest}
+              disabled={testing}
+              style={{
+                marginTop: 12, width: '100%', padding: '10px',
+                borderRadius: 8, border: '1.5px solid #e5e7eb',
+                background: testing ? '#f3f4f6' : '#fff',
+                color: '#15803d', fontSize: 13, fontWeight: 700,
+                cursor: testing ? 'default' : 'pointer'
+              }}
+            >
+              {testing ? 'Testing…' : '🧪 Test extraction'}
+            </button>
+            {testResult && (
+              <pre style={{
+                marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                background: testResult.startsWith('✓') ? '#f0fdf4' : '#fef2f2',
+                color: '#374151', fontSize: 11, lineHeight: 1.4,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                border: `1px solid ${testResult.startsWith('✓') ? '#bbf7d0' : '#fecaca'}`
+              }}>
+                {testResult}
+              </pre>
             )}
           </div>
         )}
