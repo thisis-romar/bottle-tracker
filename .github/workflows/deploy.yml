@@ -28,14 +28,22 @@ jobs:
           node-version: 20
           cache: npm
 
+      - name: Setup Pages
+        # enablement: true turns on GitHub Pages (source = GitHub Actions) on first run
+        uses: actions/configure-pages@v4
+        with:
+          enablement: true
+
       - name: Install dependencies
         run: npm ci
 
       - name: Build
         # Dynamically sets base path to /repo-name/ so asset URLs are correct.
         # github.event.repository.name is e.g. "bottle-tracker" → base = /bottle-tracker/
+        # VITE_GOOGLE_CLIENT_ID comes from a repo Variable (public; not a secret).
         env:
           VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: npm run build
 
       - name: Upload Pages artifact
