@@ -30,7 +30,14 @@ interface Toast {
 type LookupState =
   | { phase: 'idle' }
   | { phase: 'looking-up'; barcode: string }
-  | { phase: 'show-modal'; barcode: string; offResult: OFFResult | null; reconciled: ReconciledFacts | null }
+  | { phase: 'show-modal'; barcode: string; offResult: OFFResult | null; reconciled: ReconciledFacts | null; mode: 'add' | 'recheck' }
+
+interface LastAdded {
+  barcode: string
+  name?: string
+  material: Material
+  volumeMl: number
+}
 
 interface ContributeData {
   barcode: string
@@ -57,6 +64,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
   const [manualOpen, setManualOpen] = useState(false)
   const [manualCode, setManualCode] = useState('')
   const [focusRing, setFocusRing] = useState<{ x: number; y: number } | null>(null)
+  const [lastAdded, setLastAdded] = useState<LastAdded | null>(null)
 
   const addToast = (text: string, type: Toast['type'] = 'success', onUndo?: () => void) => {
     const id = Date.now()
@@ -81,6 +89,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     const known = await db.barcodes.get(code)
     if (known) {
       await addItemToSession(code, known.name, known.material, known.volumeMl, known.refundCents)
+      setLastAdded({ barcode: code, name: known.name, material: known.material, volumeMl: known.volumeMl })
       addToast(`✓ ${known.name ?? `${known.material} ${known.volumeMl}mL`}`)
       onItemAdded()
       return
@@ -102,6 +111,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
         barcode: code, name, material, volumeMl, refundCents, updatedAt: new Date().toISOString()
       })
       const added = await addItemToSession(code, name, material, volumeMl, refundCents)
+      setLastAdded({ barcode: code, name, material, volumeMl })
       onItemAdded()
       addToast(`✓ ${name ?? `${material} ${volumeMl}mL`}`, 'success', () => void undoAutoAdd(code, added))
       setContributeData({
@@ -122,8 +132,19 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       setToasts([])
     }
 
-    setLookup({ phase: 'show-modal', barcode: code, offResult, reconciled })
+    setLookup({ phase: 'show-modal', barcode: code, offResult, reconciled, mode: 'add' })
   }, [lookup, onItemAdded, sessionKey, aiDetailsEnabled, visionConfig])  // sessionKey via closure in addItemToSession
+
+  // Manual re-check: re-run the photo cross-check for the last added barcode (opt-in, AI on)
+  const handleRecheck = useCallback(async () => {
+    if (!lastAdded || lookup.phase !== 'idle') return
+    const code = lastAdded.barcode
+    addToast('📷 Re-checking…', 'info')
+    const imageJpeg = await captureFrameJpeg(videoRef.current)
+    const reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: true, visionConfig })
+    setToasts([])
+    setLookup({ phase: 'show-modal', barcode: code, offResult: null, reconciled, mode: 'recheck' })
+  }, [lastAdded, lookup, visionConfig])
 
   async function addItemToSession(
     barcode: string,
@@ -168,7 +189,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
 
   const handleSaveUnknown = async (result: UnknownBarcodeResult) => {
     if (lookup.phase !== 'show-modal') return
-    const { barcode } = lookup
+    const { barcode, mode } = lookup
 
     // Persist barcode→product mapping so future scans are instant
     await db.barcodes.put({
@@ -180,7 +201,29 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       updatedAt: new Date().toISOString()
     })
 
+    if (mode === 'recheck') {
+      // Correct the existing session item in place — do NOT add a new row or bump quantity
+      const existing = await db.items
+        .where('sessionKey').equals(sessionKey)
+        .filter(i => i.barcode === barcode)
+        .first()
+      if (existing?.id != null) {
+        await db.items.update(existing.id, {
+          name: result.name || undefined,
+          material: result.material,
+          volumeMl: result.volumeMl,
+          refundCents: result.refundCents
+        })
+      }
+      setLastAdded({ barcode, name: result.name || undefined, material: result.material, volumeMl: result.volumeMl })
+      addToast(`✓ Updated ${result.name || `${result.material} ${result.volumeMl}mL`}`)
+      setLookup({ phase: 'idle' })
+      onItemAdded()
+      return
+    }
+
     await addItemToSession(barcode, result.name || undefined, result.material, result.volumeMl, result.refundCents)
+    setLastAdded({ barcode, name: result.name || undefined, material: result.material, volumeMl: result.volumeMl })
     addToast(`✓ ${result.name || `${result.material} ${result.volumeMl}mL`}`)
     setLookup({ phase: 'idle' })
     onItemAdded()
@@ -389,6 +432,24 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
         </button>
       )}
 
+      {/* Re-check details — manual cross-check of the last added item (AI cross-check on) */}
+      {scannerStatus === 'scanning' && !manualOpen && aiDetailsEnabled && lastAdded && lookup.phase === 'idle' && (
+        <button
+          onClick={() => void handleRecheck()}
+          style={{
+            position: 'absolute', top: 70, left: 14,
+            height: 40, padding: '0 14px', borderRadius: 20,
+            border: 'none', cursor: 'pointer',
+            background: 'rgba(0,0,0,0.45)', color: '#fff',
+            fontSize: 12, fontWeight: 700, display: 'flex',
+            alignItems: 'center', gap: 6,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
+          }}
+        >
+          🔁 Re-check details
+        </button>
+      )}
+
       {manualOpen && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 60,
@@ -523,6 +584,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
           barcode={lookup.barcode}
           offResult={lookup.offResult}
           reconciled={lookup.reconciled}
+          mode={lookup.mode}
           onSave={handleSaveUnknown}
           onSkip={handleSkipUnknown}
         />

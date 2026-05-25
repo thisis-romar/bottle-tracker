@@ -17,6 +17,8 @@ interface Props {
   offResult?: OFFResult | null
   /** Cross-validated facts from multiple sources (present when "cross-check" is on) */
   reconciled?: ReconciledFacts | null
+  /** 'recheck' = correcting an already-added item; 'add' (default) = new scan */
+  mode?: 'add' | 'recheck'
   onSave: (result: UnknownBarcodeResult) => void
   onSkip: () => void
 }
@@ -30,7 +32,7 @@ const MATERIAL_OPTIONS: { value: Material; label: string; icon: string }[] = [
   { value: 'tetra',    label: 'Tetra',   icon: '🧃' },
 ]
 
-export default function UnknownBarcodeModal({ barcode, offResult, reconciled, onSave, onSkip }: Props) {
+export default function UnknownBarcodeModal({ barcode, offResult, reconciled, mode = 'add', onSave, onSkip }: Props) {
   // Initialise from the reconciled winner when available, else OFF prefill
   const [name,     setName]     = useState(reconciled?.name.value ?? offResult?.name ?? offResult?.brand ?? '')
   const [material, setMaterial] = useState<Material>(reconciled?.material.value ?? offResult?.material ?? 'aluminum')
@@ -78,7 +80,7 @@ export default function UnknownBarcodeModal({ barcode, offResult, reconciled, on
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 17 }}>
-              {hasOFFData ? 'Confirm Product' : 'Unknown Barcode'}
+              {mode === 'recheck' ? 'Re-check Product' : hasOFFData ? 'Confirm Product' : 'Unknown Barcode'}
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', fontFamily: 'monospace', marginTop: 2 }}>
               {barcode}
@@ -213,9 +215,9 @@ export default function UnknownBarcodeModal({ barcode, offResult, reconciled, on
         </div>
 
         <div style={{ display: 'flex', gap: 10 }}>
-          <button onClick={onSkip} style={skipBtnStyle}>Skip</button>
+          <button onClick={onSkip} style={skipBtnStyle}>{mode === 'recheck' ? 'Cancel' : 'Skip'}</button>
           <button onClick={handleSave} style={saveBtnStyle}>
-            Save &amp; Add ✓
+            {mode === 'recheck' ? 'Update ✓' : 'Save & Add ✓'}
           </button>
         </div>
       </div>
