@@ -7,7 +7,7 @@ import { lookupBarcode, type OFFResult } from '../utils/offLookup'
 import { playBeep, primeAudio } from '../utils/beep'
 import UnknownBarcodeModal, { type UnknownBarcodeResult } from '../components/UnknownBarcodeModal'
 import ContributePrompt from '../components/ContributePrompt'
-import { gatherProductFacts, type ReconciledFacts } from '../utils/productSources'
+import { gatherProductFacts, type ReconciledFacts, type VisionRuntimeConfig } from '../utils/productSources'
 import { captureFrameJpeg } from '../utils/captureFrame'
 import type { Material } from '../db'
 
@@ -17,6 +17,7 @@ interface Props {
   soundEnabled?: boolean
   vibrateEnabled?: boolean
   aiDetailsEnabled?: boolean
+  visionConfig?: VisionRuntimeConfig
 }
 
 interface Toast {
@@ -39,7 +40,7 @@ interface ContributeData {
   refundCents: 10 | 20
 }
 
-export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true, aiDetailsEnabled = false }: Props) {
+export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true, aiDetailsEnabled = false, visionConfig }: Props) {
   const videoRef    = useRef<HTMLVideoElement>(null)
   const readerRef   = useRef<BrowserMultiFormatReader | null>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
@@ -55,6 +56,7 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
   const [torchSupported, setTorchSupported] = useState(false)
   const [manualOpen, setManualOpen] = useState(false)
   const [manualCode, setManualCode] = useState('')
+  const [focusRing, setFocusRing] = useState<{ x: number; y: number } | null>(null)
 
   const addToast = (text: string, type: Toast['type'] = 'success', onUndo?: () => void) => {
     const id = Date.now()
@@ -116,12 +118,12 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     if (aiDetailsEnabled) {
       addToast('📷 Checking sources…', 'info')
       const imageJpeg = await captureFrameJpeg(videoRef.current)
-      reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: true, offResult })
+      reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: true, offResult, visionConfig })
       setToasts([])
     }
 
     setLookup({ phase: 'show-modal', barcode: code, offResult, reconciled })
-  }, [lookup, onItemAdded, sessionKey, aiDetailsEnabled])  // sessionKey via closure in addItemToSession
+  }, [lookup, onItemAdded, sessionKey, aiDetailsEnabled, visionConfig])  // sessionKey via closure in addItemToSession
 
   async function addItemToSession(
     barcode: string,
@@ -207,6 +209,30 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     }
   }
 
+  // Tap-to-focus — best-effort; iOS Safari support is partial, so degrade silently
+  const handleTapFocus = async (e: React.MouseEvent<HTMLVideoElement>) => {
+    primeAudio()
+    const track = trackRef.current
+    const rect = e.currentTarget.getBoundingClientRect()
+    setFocusRing({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+    setTimeout(() => setFocusRing(null), 700)
+    if (!track) return
+    const x = (e.clientX - rect.left) / rect.width
+    const y = (e.clientY - rect.top) / rect.height
+    const caps = track.getCapabilities?.() as { focusMode?: string[]; pointsOfInterest?: unknown } | undefined
+    const modes = caps?.focusMode ?? []
+    const advanced: Record<string, unknown>[] = []
+    if (caps && 'pointsOfInterest' in caps) advanced.push({ pointsOfInterest: [{ x, y }] })
+    if (modes.includes('single-shot')) advanced.push({ focusMode: 'single-shot' })
+    else if (modes.includes('manual')) advanced.push({ focusMode: 'manual' })
+    if (advanced.length === 0) return
+    try {
+      await track.applyConstraints({ advanced } as unknown as MediaTrackConstraints)
+    } catch {
+      /* unsupported — ignore */
+    }
+  }
+
   // Manual fallback for codes the camera can't read — reuses the full scan pipeline
   const submitManualCode = async () => {
     const code = manualCode.replace(/\s/g, '')
@@ -261,9 +287,18 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       const stream = videoRef.current.srcObject as MediaStream | null
       const track = stream?.getVideoTracks?.()[0] ?? null
       trackRef.current = track
-      const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean }) | undefined
+      const caps = track?.getCapabilities?.() as (MediaTrackCapabilities & { torch?: boolean; focusMode?: string[] }) | undefined
       setTorchSupported(!!caps?.torch)
       setTorchOn(false)
+
+      // Best-effort continuous autofocus where supported
+      if (track && Array.isArray(caps?.focusMode) && caps.focusMode.includes('continuous')) {
+        try {
+          await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] } as unknown as MediaTrackConstraints)
+        } catch {
+          /* ignore */
+        }
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       setErrorMsg(
@@ -299,8 +334,18 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
         ref={videoRef}
         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         muted playsInline autoPlay
-        onClick={primeAudio}
+        onClick={handleTapFocus}
       />
+
+      {/* Tap-to-focus ring */}
+      {focusRing && (
+        <div style={{
+          position: 'absolute', left: focusRing.x - 28, top: focusRing.y - 28,
+          width: 56, height: 56, borderRadius: '50%',
+          border: '2px solid #fde047', boxShadow: '0 0 0 1px rgba(0,0,0,0.3)',
+          pointerEvents: 'none', zIndex: 55, animation: 'pulse 0.7s ease-out'
+        }} />
+      )}
 
       {/* Scan guide */}
       {scannerStatus === 'scanning' && !lookingUp && (

@@ -36,6 +36,15 @@ export interface ProductFacts {
   nutrition?: Nutrition
 }
 
+/** Runtime config selecting how the on-can vision extractor reaches the model. */
+export interface VisionRuntimeConfig {
+  mode: 'mock' | 'byok' | 'proxy'
+  /** Anthropic API key for bring-your-own-key (direct) mode. */
+  apiKey?: string
+  /** Serverless proxy URL for proxy mode. */
+  proxyUrl?: string
+}
+
 export interface SourceResult {
   source: SourceId
   facts: ProductFacts

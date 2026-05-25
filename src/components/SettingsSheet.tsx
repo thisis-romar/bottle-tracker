@@ -1,6 +1,12 @@
 import { useState } from 'react'
-import type { AppSettings } from '../hooks/useSettings'
+import type { AppSettings, VisionMode } from '../hooks/useSettings'
 import type { GoogleAuthState } from '../hooks/useGoogleAuth'
+
+const VISION_MODES: { id: VisionMode; label: string }[] = [
+  { id: 'mock',  label: 'Mock' },
+  { id: 'byok',  label: 'My key' },
+  { id: 'proxy', label: 'Proxy' },
+]
 
 interface Props {
   settings: AppSettings
@@ -60,13 +66,67 @@ export default function SettingsSheet({
           value={settings.vibrateEnabled}
           onChange={v => onSettingsUpdate({ vibrateEnabled: v })}
         />
+        {/* ── Can detail extraction ─────────────────────── */}
+        <SectionHeader>Can detail extraction</SectionHeader>
+
         <ToggleRow
           label="Cross-check can details"
-          detail="On unknown barcodes, read the can photo and validate size/type/nutrition across sources (experimental — uses a mock extractor)"
+          detail="On unknown barcodes, read the can photo and validate size/type/nutrition across sources"
           icon="📷"
           value={settings.aiDetailsEnabled}
           onChange={v => onSettingsUpdate({ aiDetailsEnabled: v })}
         />
+
+        {settings.aiDetailsEnabled && (
+          <div style={{ padding: '0 20px 14px' }}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+              {VISION_MODES.map(({ id, label }) => {
+                const active = settings.visionMode === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onSettingsUpdate({ visionMode: id })}
+                    style={{
+                      flex: 1, padding: '8px 4px', borderRadius: 8,
+                      border: `1.5px solid ${active ? '#15803d' : '#e5e7eb'}`,
+                      background: active ? '#dcfce7' : '#fff',
+                      color: active ? '#15803d' : '#374151',
+                      fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer'
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+
+            {settings.visionMode === 'byok' && (
+              <>
+                <input
+                  type="password" autoComplete="off" placeholder="Anthropic API key (sk-ant-…)"
+                  value={settings.anthropicApiKey}
+                  onChange={e => onSettingsUpdate({ anthropicApiKey: e.target.value })}
+                  style={settingInput}
+                />
+                <div style={hintText}>Stored only in this browser. Calls Anthropic directly with prompt caching.</div>
+              </>
+            )}
+            {settings.visionMode === 'proxy' && (
+              <>
+                <input
+                  type="url" autoComplete="off" placeholder="https://your-worker.workers.dev"
+                  value={settings.visionProxyUrl}
+                  onChange={e => onSettingsUpdate({ visionProxyUrl: e.target.value })}
+                  style={settingInput}
+                />
+                <div style={hintText}>Your serverless proxy holds the key server-side. See <code>worker/README.md</code>.</div>
+              </>
+            )}
+            {settings.visionMode === 'mock' && (
+              <div style={hintText}>Simulated extractor — exercises the pipeline without an API key.</div>
+            )}
+          </div>
+        )}
 
         {/* ── Google Sheets section ─────────────────────── */}
         <SectionHeader>Google Sheets</SectionHeader>
@@ -258,6 +318,14 @@ function GoogleIcon() {
   )
 }
 
+const settingInput: React.CSSProperties = {
+  width: '100%', padding: '9px 12px', borderRadius: 8,
+  border: '1.5px solid #e5e7eb', fontSize: 14, outline: 'none',
+  background: '#f9fafb', WebkitAppearance: 'none', boxSizing: 'border-box'
+}
+const hintText: React.CSSProperties = {
+  fontSize: 11, color: '#9ca3af', marginTop: 6, lineHeight: 1.4
+}
 const cancelBtnStyle: React.CSSProperties = {
   flex: 1, padding: '9px', borderRadius: 8,
   border: '1.5px solid #e5e7eb', background: '#fff',

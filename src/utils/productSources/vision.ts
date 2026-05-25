@@ -1,18 +1,37 @@
-import type { SourceResult } from './types'
+import { claudeVisionExtract, ANTHROPIC_DIRECT } from './visionClaude'
+import type { SourceResult, VisionRuntimeConfig } from './types'
+
+function notConfigured(note: string): SourceResult {
+  return { source: 'vision', facts: {}, confidence: 0, ok: false, note }
+}
 
 /**
- * MOCK on-can vision extractor — for prototyping the pipeline + confirm UI.
- *
- * A mock can't actually read the label, so it returns only simulated *physical*
- * attributes (clearly flagged), which still exercises cross-validation against
- * DB/OFF on material + volume. Swap in `claudeVisionExtract` (visionClaude.ts)
- * for real label/nutrition reading.
+ * On-can vision extractor. Dispatches by runtime config:
+ *   - 'mock'  → simulated physical attributes (prototyping; no network)
+ *   - 'byok'  → real Claude call direct from the browser with the user's key
+ *   - 'proxy' → real Claude call via a serverless proxy that holds the key
+ * Both real paths post the same prompt-cached request body (see visionClaude.ts).
  */
-export async function extractWithVision(imageJpeg: Blob | null, _barcode?: string): Promise<SourceResult> {
-  await new Promise(r => setTimeout(r, 350)) // simulate model latency
-  if (!imageJpeg || imageJpeg.size === 0) {
-    return { source: 'vision', facts: {}, confidence: 0, ok: false, note: 'no image captured' }
+export async function extractWithVision(
+  imageJpeg: Blob | null,
+  config?: VisionRuntimeConfig,
+): Promise<SourceResult> {
+  if (!imageJpeg || imageJpeg.size === 0) return notConfigured('no image captured')
+
+  const mode = config?.mode ?? 'mock'
+
+  if (mode === 'byok') {
+    if (!config?.apiKey) return notConfigured('add your Anthropic API key in Settings')
+    return claudeVisionExtract(imageJpeg, { endpoint: ANTHROPIC_DIRECT, apiKey: config.apiKey })
   }
+
+  if (mode === 'proxy') {
+    if (!config?.proxyUrl) return notConfigured('set the proxy URL in Settings')
+    return claudeVisionExtract(imageJpeg, { endpoint: config.proxyUrl })
+  }
+
+  // mock — a mock can't read the label, so it returns only simulated physical attributes
+  await new Promise(r => setTimeout(r, 350))
   return {
     source: 'vision',
     facts: {

@@ -1,10 +1,18 @@
 import { useState, useCallback } from 'react'
 
+export type VisionMode = 'mock' | 'byok' | 'proxy'
+
 export interface AppSettings {
   soundEnabled: boolean
   vibrateEnabled: boolean
-  /** Capture the can photo and cross-validate details across sources (experimental, mock). */
+  /** Capture the can photo and cross-validate details across sources (experimental). */
   aiDetailsEnabled: boolean
+  /** Which on-can vision extractor to use when aiDetailsEnabled is on. */
+  visionMode: VisionMode
+  /** Anthropic API key for bring-your-own-key mode (stored on this device only). */
+  anthropicApiKey: string
+  /** Serverless proxy URL for proxy mode. */
+  visionProxyUrl: string
 }
 
 const SETTINGS_KEY = 'bottle_app_settings'
@@ -12,7 +20,10 @@ const SETTINGS_KEY = 'bottle_app_settings'
 const DEFAULTS: AppSettings = {
   soundEnabled: true,
   vibrateEnabled: true,
-  aiDetailsEnabled: false
+  aiDetailsEnabled: false,
+  visionMode: 'mock',
+  anthropicApiKey: '',
+  visionProxyUrl: ''
 }
 
 function load(): AppSettings {

@@ -4,9 +4,9 @@ import { lookupLocalDb } from './localDb'
 import { lookupOpenFoodFacts } from './openFoodFacts'
 import { lookupLcbo } from './lcbo'
 import { extractWithVision } from './vision'
-import type { ReconciledFacts, SourceResult } from './types'
+import type { ReconciledFacts, SourceResult, VisionRuntimeConfig } from './types'
 
-export type { ReconciledFacts, SourceResult, SourceId, ProductFacts, Nutrition, FieldConsensus } from './types'
+export type { ReconciledFacts, SourceResult, SourceId, ProductFacts, Nutrition, FieldConsensus, VisionRuntimeConfig } from './types'
 export { SOURCE_LABELS } from './types'
 export { reconcileFacts } from './reconcile'
 
@@ -25,6 +25,8 @@ export interface GatherInput {
   aiEnabled: boolean
   /** Pre-fetched OFF result to avoid a duplicate network call. */
   offResult?: OFFResult | null
+  /** Selects the on-can vision extractor (mock / byok / proxy). */
+  visionConfig?: VisionRuntimeConfig
 }
 
 /** Run all configured sources in parallel and cross-validate the results. */
@@ -35,7 +37,7 @@ export async function gatherProductFacts(input: GatherInput): Promise<Reconciled
     safe(lookupLcbo({ barcode: input.barcode }), 'lcbo'),
   ]
   if (input.aiEnabled) {
-    tasks.push(safe(extractWithVision(input.imageJpeg ?? null, input.barcode), 'vision'))
+    tasks.push(safe(extractWithVision(input.imageJpeg ?? null, input.visionConfig), 'vision'))
   }
   const results = await Promise.all(tasks)
   return reconcileFacts(results)

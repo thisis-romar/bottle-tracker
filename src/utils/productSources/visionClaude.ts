@@ -16,6 +16,9 @@ import type { ProductFacts, SourceResult } from './types'
 
 export const VISION_MODEL = 'claude-haiku-4-5' // cheap; use 'claude-opus-4-7' for max accuracy
 
+/** Anthropic Messages endpoint for direct (bring-your-own-key) calls. */
+export const ANTHROPIC_DIRECT = 'https://api.anthropic.com/v1/messages'
+
 const SYSTEM_INSTRUCTION =
   'You are a beverage label extraction expert. From the photo of a single can/bottle, ' +
   'read the visible text and return ONLY structured data via the extract_product tool. ' +

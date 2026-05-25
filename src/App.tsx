@@ -101,6 +101,11 @@ export default function App() {
             soundEnabled={settings.soundEnabled}
             vibrateEnabled={settings.vibrateEnabled}
             aiDetailsEnabled={settings.aiDetailsEnabled}
+            visionConfig={{
+              mode: settings.visionMode,
+              apiKey: settings.anthropicApiKey,
+              proxyUrl: settings.visionProxyUrl,
+            }}
           />
         )}
         {tab === 'manual' && (
