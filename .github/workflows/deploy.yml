@@ -2,7 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # Deploying from this branch because the github-pages environment's
+    # deployment-branch rule allows it (the repo default branch). Move back
+    # to [main] once that env rule is opened to main.
+    branches: [claude/sheets-export-audio-settings-wlHSM]
   workflow_dispatch:   # allows manual trigger from the Actions tab
 
 permissions:
