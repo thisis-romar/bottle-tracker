@@ -28,11 +28,11 @@ For bulk contributions or corrections to existing entries:
 
 ```json
 "062067382215": {
-  "name": "Stella Artois 500 mL",
+  "name": "Stella Artois 355 mL",
   "brand": "Stella Artois",
   "brewer": "Labatt",
   "material": "aluminum",
-  "volumeMl": 500,
+  "volumeMl": 355,
   "abv": 5.0,
   "type": "beer",
   "verifiedBy": "photo-scan",

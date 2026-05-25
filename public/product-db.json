@@ -1,14 +1,14 @@
 {
-  "version": 2,
+  "version": 3,
   "generated": "2026-05-25",
   "note": "All barcodes in this file have been verified against physical products. Do not add barcodes from memory or web searches — check digits must pass validation and the product must be physically scanned. See CONTRIBUTING.md.",
   "products": {
     "062067382215": {
-      "name": "Stella Artois 500 mL",
+      "name": "Stella Artois 355 mL",
       "brand": "Stella Artois",
       "brewer": "Labatt",
       "material": "aluminum",
-      "volumeMl": 500,
+      "volumeMl": 355,
       "abv": 5.0,
       "type": "beer",
       "verifiedBy": "photo-scan",
