@@ -47,6 +47,8 @@ Refund auto-derives from type + size; quantity auto-increments on repeat scan. T
       or a Cloudflare Worker proxy (`worker/`) — and a Haiku/Sonnet/Opus selector + Test button.
 - [x] "Re-check details" to re-validate the last added item; tap-to-focus for close-up cans.
 - [x] CI (`.github/workflows/ci.yml`) runs build + vitest on push/PR.
+- [x] Real LCBO enrichment: two-phase pipeline feeds a derived name to a proxy `/lcbo` route
+      (community `api.lcbo.dev`); volume/material parsed from the result, graceful no-op on failure.
 
 ## Phase 2 — Automate entry II: camera OCR fallback
 

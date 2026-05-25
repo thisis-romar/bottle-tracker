@@ -98,7 +98,9 @@ in the confirm sheet):
 
 - **Community DB** — your local + `product-db.json` mappings.
 - **Open Food Facts** — name/brand/size + best-effort nutrition (sparse for alcohol).
-- **LCBO** — stub for now (no public barcode API; lights up once a proxy is added).
+- **LCBO** — name-search enrichment (no barcode API exists) via the proxy's `/lcbo` route;
+  runs once another source supplies a name. Uses the community `api.lcbo.dev` — see
+  [worker/README.md](./worker/README.md) to verify/adjust the query after deploy.
 - **Photo (Claude vision)** — reads the can label for product/size/ABV/nutrition.
 
 Vision backend is chosen at runtime in Settings:
@@ -148,6 +150,5 @@ See [ROADMAP.md](./ROADMAP.md) for the current plan and priorities.
 
 **Planned**
 - [ ] Larger verified Ontario catalog (barcode-first auto-fill)
-- [ ] Real LCBO enrichment (name search via the proxy)
 - [ ] Cloud sync / user accounts
 - [ ] Multi-bag / draft sessions
