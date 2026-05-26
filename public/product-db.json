@@ -1,6 +1,6 @@
 {
   "version": 3,
-  "generated": "2026-05-25",
+  "generated": "2026-05-26",
   "note": "All barcodes in this file have been verified against physical products. Do not add barcodes from memory or web searches — check digits must pass validation and the product must be physically scanned. See CONTRIBUTING.md.",
   "products": {
     "062067382215": {
@@ -35,6 +35,28 @@
       "type": "beer",
       "verifiedBy": "checkdigit",
       "addedDate": "2025-05-25"
+    },
+    "811538010238": {
+      "name": "1800 Reposado Tequila 750 mL",
+      "brand": "1800",
+      "brewer": "Proximo Spirits",
+      "material": "glass",
+      "volumeMl": 750,
+      "abv": 40,
+      "type": "tequila",
+      "verifiedBy": "photo-scan",
+      "addedDate": "2026-05-26"
+    },
+    "087000151086": {
+      "name": "Captain Morgan Spiced Rum 750 mL",
+      "brand": "Captain Morgan",
+      "brewer": "Captain Morgan Rum Co.",
+      "material": "glass",
+      "volumeMl": 750,
+      "abv": 35,
+      "type": "rum",
+      "verifiedBy": "photo-scan",
+      "addedDate": "2026-05-26"
     }
   }
 }
