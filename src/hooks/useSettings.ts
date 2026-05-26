@@ -16,6 +16,8 @@ export interface AppSettings {
   anthropicApiKey: string
   /** Serverless proxy URL for proxy mode. */
   visionProxyUrl: string
+  /** Optional shared secret sent as x-proxy-secret, if the Worker sets PROXY_SECRET. */
+  visionProxySecret: string
 }
 
 const SETTINGS_KEY = 'bottle_app_settings'
@@ -27,7 +29,8 @@ const DEFAULTS: AppSettings = {
   visionMode: 'mock',
   visionModel: 'claude-haiku-4-5',
   anthropicApiKey: '',
-  visionProxyUrl: ''
+  visionProxyUrl: '',
+  visionProxySecret: ''
 }
 
 function load(): AppSettings {

@@ -28,8 +28,8 @@ wrangler deploy
 ## Use it in the app
 
 Open the app → **Settings → Can detail extraction → Proxy**, and paste the Worker URL.
-(If you set `PROXY_SECRET`, the app currently doesn't send it — add an `x-proxy-secret`
-header in `claudeVisionExtract` if you enable that check.)
+If you set `PROXY_SECRET`, also enter the same value in the **Proxy secret** field there —
+the app sends it as the `x-proxy-secret` header that the vision `POST /` route checks.
 
 ## LCBO route
 

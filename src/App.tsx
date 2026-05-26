@@ -106,6 +106,7 @@ export default function App() {
               model: settings.visionModel,
               apiKey: settings.anthropicApiKey,
               proxyUrl: settings.visionProxyUrl,
+              proxySecret: settings.visionProxySecret,
             }}
           />
         )}

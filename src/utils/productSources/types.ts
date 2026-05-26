@@ -43,6 +43,8 @@ export interface VisionRuntimeConfig {
   apiKey?: string
   /** Serverless proxy URL for proxy mode. */
   proxyUrl?: string
+  /** Optional shared secret sent as x-proxy-secret when the proxy sets PROXY_SECRET. */
+  proxySecret?: string
   /** Claude model id (e.g. claude-haiku-4-5); defaults in the extractor. */
   model?: string
 }

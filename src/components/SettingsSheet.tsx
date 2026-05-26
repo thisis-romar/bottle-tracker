@@ -60,6 +60,7 @@ export default function SettingsSheet({
         mode: settings.visionMode,
         apiKey: settings.anthropicApiKey,
         proxyUrl: settings.visionProxyUrl,
+        proxySecret: settings.visionProxySecret,
       })
       const head = res.ok ? '✓ Success' : `✗ ${res.note ?? 'failed'}`
       setTestResult(`${head}\n${JSON.stringify(res.facts, null, 2)}`)
@@ -163,7 +164,13 @@ export default function SettingsSheet({
                   onChange={e => onSettingsUpdate({ visionProxyUrl: e.target.value })}
                   style={settingInput}
                 />
-                <div style={hintText}>Your serverless proxy holds the key server-side. See <code>worker/README.md</code>.</div>
+                <input
+                  type="password" autoComplete="off" placeholder="Proxy secret (optional)"
+                  value={settings.visionProxySecret}
+                  onChange={e => onSettingsUpdate({ visionProxySecret: e.target.value })}
+                  style={settingInput}
+                />
+                <div style={hintText}>Your serverless proxy holds the key server-side. See <code>worker/README.md</code>. Set the secret only if your Worker sets <code>PROXY_SECRET</code>.</div>
               </>
             )}
             {settings.visionMode === 'mock' && (

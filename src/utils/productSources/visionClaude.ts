@@ -214,6 +214,8 @@ export interface ClaudeVisionConfig {
   endpoint: string
   /** Only for direct BYO-key calls; omit when using a proxy that holds the key. */
   apiKey?: string
+  /** Shared secret for a proxy that sets PROXY_SECRET; sent as x-proxy-secret. */
+  proxySecret?: string
   /** Claude model id; defaults to VISION_MODEL. */
   model?: string
 }
@@ -239,6 +241,7 @@ export async function claudeVisionExtract(imageJpeg: Blob, config: ClaudeVisionC
       headers['anthropic-version'] = '2023-06-01'
       headers['anthropic-dangerous-direct-browser-access'] = 'true'
     }
+    if (config.proxySecret) headers['x-proxy-secret'] = config.proxySecret
     const res = await fetch(config.endpoint, {
       method: 'POST',
       headers,

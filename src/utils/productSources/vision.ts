@@ -27,7 +27,7 @@ export async function extractWithVision(
 
   if (mode === 'proxy') {
     if (!config?.proxyUrl) return notConfigured('set the proxy URL in Settings')
-    return claudeVisionExtract(imageJpeg, { endpoint: config.proxyUrl, model: config.model })
+    return claudeVisionExtract(imageJpeg, { endpoint: config.proxyUrl, model: config.model, proxySecret: config.proxySecret })
   }
 
   // mock — no real extraction. Return NO facts so it can't fabricate agreement and inflate the
