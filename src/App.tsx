@@ -101,6 +101,7 @@ export default function App() {
             soundEnabled={settings.soundEnabled}
             vibrateEnabled={settings.vibrateEnabled}
             aiDetailsEnabled={settings.aiDetailsEnabled}
+            ocrEnabled={settings.ocrEnabled}
             visionConfig={{
               mode: settings.visionMode,
               model: settings.visionModel,

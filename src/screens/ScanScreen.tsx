@@ -17,6 +17,7 @@ interface Props {
   soundEnabled?: boolean
   vibrateEnabled?: boolean
   aiDetailsEnabled?: boolean
+  ocrEnabled?: boolean
   visionConfig?: VisionRuntimeConfig
 }
 
@@ -47,7 +48,7 @@ interface ContributeData {
   refundCents: 10 | 20
 }
 
-export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true, aiDetailsEnabled = false, visionConfig }: Props) {
+export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = true, vibrateEnabled = true, aiDetailsEnabled = false, ocrEnabled = false, visionConfig }: Props) {
   const videoRef    = useRef<HTMLVideoElement>(null)
   const readerRef   = useRef<BrowserMultiFormatReader | null>(null)
   const controlsRef = useRef<IScannerControls | null>(null)
@@ -123,17 +124,17 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
       return
     }
 
-    // Optional cross-check: capture the can photo and validate across sources
+    // Optional cross-check: capture the can photo and validate across sources (AI and/or OCR)
     let reconciled: ReconciledFacts | null = null
-    if (aiDetailsEnabled) {
+    if (aiDetailsEnabled || ocrEnabled) {
       addToast('📷 Checking sources…', 'info')
       const imageJpeg = await captureFrameJpeg(videoRef.current)
-      reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: true, offResult, visionConfig })
+      reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: aiDetailsEnabled, ocrEnabled, offResult, visionConfig })
       setToasts([])
     }
 
     setLookup({ phase: 'show-modal', barcode: code, offResult, reconciled, mode: 'add' })
-  }, [lookup, onItemAdded, sessionKey, aiDetailsEnabled, visionConfig])  // sessionKey via closure in addItemToSession
+  }, [lookup, onItemAdded, sessionKey, aiDetailsEnabled, ocrEnabled, visionConfig])  // sessionKey via closure in addItemToSession
 
   // Manual re-check: re-run the photo cross-check for the last added barcode (opt-in, AI on)
   const handleRecheck = useCallback(async () => {
@@ -141,10 +142,10 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     const code = lastAdded.barcode
     addToast('📷 Re-checking…', 'info')
     const imageJpeg = await captureFrameJpeg(videoRef.current)
-    const reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: true, visionConfig })
+    const reconciled = await gatherProductFacts({ barcode: code, imageJpeg, aiEnabled: aiDetailsEnabled, ocrEnabled, visionConfig })
     setToasts([])
     setLookup({ phase: 'show-modal', barcode: code, offResult: null, reconciled, mode: 'recheck' })
-  }, [lastAdded, lookup, visionConfig])
+  }, [lastAdded, lookup, aiDetailsEnabled, ocrEnabled, visionConfig])
 
   async function addItemToSession(
     barcode: string,
@@ -432,8 +433,8 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
         </button>
       )}
 
-      {/* Re-check details — manual cross-check of the last added item (AI cross-check on) */}
-      {scannerStatus === 'scanning' && !manualOpen && aiDetailsEnabled && lastAdded && lookup.phase === 'idle' && (
+      {/* Re-check details — manual cross-check of the last added item (AI and/or OCR on) */}
+      {scannerStatus === 'scanning' && !manualOpen && (aiDetailsEnabled || ocrEnabled) && lastAdded && lookup.phase === 'idle' && (
         <button
           onClick={() => void handleRecheck()}
           style={{

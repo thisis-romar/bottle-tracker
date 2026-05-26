@@ -219,6 +219,14 @@ export default function SettingsSheet({
           </div>
         )}
 
+        <ToggleRow
+          label="Read label text (OCR)"
+          detail="On-device, offline, no API key. Reads size/ABV off the can; downloads ~11 MB once on first use. Best-effort on glossy cans."
+          icon="🔡"
+          value={settings.ocrEnabled}
+          onChange={v => onSettingsUpdate({ ocrEnabled: v })}
+        />
+
         {/* ── Google Sheets section ─────────────────────── */}
         <SectionHeader>Google Sheets</SectionHeader>
 

@@ -31,7 +31,20 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: []
+        // Keep the ~19 MB Tesseract OCR assets OUT of the install precache — they're
+        // runtime-cached on first use instead (offline-capable after the first OCR).
+        globIgnores: ['**/tesseract/**'],
+        runtimeCaching: [
+          {
+            urlPattern: /\/tesseract\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tesseract-ocr',
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          }
+        ]
       },
       devOptions: {
         enabled: false

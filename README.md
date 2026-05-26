@@ -102,6 +102,11 @@ in the confirm sheet):
   runs once another source supplies a name. Uses the community `api.lcbo.dev` — see
   [worker/README.md](./worker/README.md) to verify/adjust the query after deploy.
 - **Photo (Claude vision)** — reads the can label for product/size/ABV/nutrition.
+- **Label OCR** — on-device, offline, no API key (Tesseract.js). Reads size/ABV (and obvious
+  material cues) off the captured frame. Enable separately via **Settings → "Read label text
+  (OCR)"**; it works without the AI cross-check. Best-effort on glossy/curved cans — a pre-fill
+  you still confirm. Engine + English data (~19 MB) are served from the app and cached on first
+  use (offline after that), so do the first OCR while online.
 
 Vision backend is chosen at runtime in Settings:
 

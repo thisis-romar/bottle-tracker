@@ -8,6 +8,8 @@ export interface AppSettings {
   vibrateEnabled: boolean
   /** Capture the can photo and cross-validate details across sources (experimental). */
   aiDetailsEnabled: boolean
+  /** Read size/ABV off the label on-device with OCR (offline, no API key). */
+  ocrEnabled: boolean
   /** Which on-can vision extractor to use when aiDetailsEnabled is on. */
   visionMode: VisionMode
   /** Claude model used by the byok/proxy extractor. */
@@ -26,6 +28,7 @@ const DEFAULTS: AppSettings = {
   soundEnabled: true,
   vibrateEnabled: true,
   aiDetailsEnabled: false,
+  ocrEnabled: false,
   visionMode: 'mock',
   visionModel: 'claude-haiku-4-5',
   anthropicApiKey: '',

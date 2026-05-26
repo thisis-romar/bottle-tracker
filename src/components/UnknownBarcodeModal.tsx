@@ -226,7 +226,7 @@ export default function UnknownBarcodeModal({ barcode, offResult, reconciled, mo
 }
 
 const SHORT_LABELS: Record<SourceId, string> = {
-  localDb: 'DB', off: 'OFF', lcbo: 'LCBO', vision: 'AI',
+  localDb: 'DB', off: 'OFF', lcbo: 'LCBO', vision: 'AI', ocr: 'OCR',
 }
 
 function SourcesPanel({ reconciled }: { reconciled: ReconciledFacts }) {

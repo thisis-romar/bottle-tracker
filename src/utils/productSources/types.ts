@@ -8,13 +8,14 @@
 
 import type { Material } from '../../db'
 
-export type SourceId = 'localDb' | 'off' | 'lcbo' | 'vision'
+export type SourceId = 'localDb' | 'off' | 'lcbo' | 'vision' | 'ocr'
 
 export const SOURCE_LABELS: Record<SourceId, string> = {
   localDb: 'Community DB',
   off: 'Open Food Facts',
   lcbo: 'LCBO',
   vision: 'Photo (AI)',
+  ocr: 'Label OCR',
 }
 
 export interface Nutrition {

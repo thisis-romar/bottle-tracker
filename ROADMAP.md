@@ -50,11 +50,15 @@ Refund auto-derives from type + size; quantity auto-increments on repeat scan. T
 - [x] Real LCBO enrichment: two-phase pipeline feeds a derived name to a proxy `/lcbo` route
       (community `api.lcbo.dev`); volume/material parsed from the result, graceful no-op on failure.
 
-## Phase 2 — Automate entry II: camera OCR fallback
+## Phase 2 — Automate entry II: camera OCR fallback  ✅
 
-- [ ] On-device OCR fallback (no API key, offline) for when a barcode is unknown and vision is off.
-- [ ] Parse size with the existing `parseVolume()` and infer material with `parseMaterial()`,
-      then pre-fill the unknown-barcode sheet so the user just confirms.
+- [x] On-device OCR fallback (Tesseract.js — no API key, offline) as an opt-in source
+      (`productSources/ocr.ts`), runs on the captured frame when a barcode is unknown; works
+      with the AI cross-check off.
+- [x] Parse size with the existing `parseVolume()` plus conservative material/ABV regexes
+      (`parseOcrText`, unit-tested), pre-filling the confirm sheet via the reconcile pipeline.
+- [x] OCR assets (~19 MB) bundled & served from the app, excluded from the install precache and
+      runtime-cached on first use (`vite.config.ts`), so the PWA install stays small.
 
 ## Later
 
