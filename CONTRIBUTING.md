@@ -63,6 +63,38 @@ node -e "
 
 ---
 
+## Method 3 — Profile labels with OCR (offline)
+
+Generate contribution fragments from label photos using the bundled on-device OCR — no API key,
+no network. OCR reads the size/ABV (and obvious material cues); you supply the barcode and name.
+
+```bash
+# Reads material/volume/ABV off the photo, validates the barcode, and writes
+# contributions/811538010238.json (merge-ready) when name + material + volume are all present.
+npm run profile:labels -- ./photos/1800-front.jpg \
+  --barcode 811538010238 --name "1800 Reposado Tequila 750 mL" --brand 1800 --type tequila
+
+# Without enough fields it prints the stub and lists what's missing instead of writing a file.
+npm run profile:labels -- ./photos/some-can.jpg
+```
+
+Flags: `--barcode --name --brand --brewer --type --material --volume --abv --out <dir>`. Flags
+override OCR for fields it can't read. Then merge the fragments into the DB:
+
+```bash
+node scripts/merge-contributions.mjs   # folds contributions/*.json into product-db.json, bumps version
+```
+
+> JPG/PNG only — Tesseract can't read iPhone HEIC; convert first. Aim at the **front** label for
+> the cleanest size/ABV read. Barcodes are validated with the same check-digit logic as CI
+> (`scripts/lib/barcode.mjs`).
+
+In the app, the same OCR powers a **"📷 Read label"** button in the manual-barcode dialog (when
+*Read label text (OCR)* is enabled in Settings): type the barcode, tap it, and the confirm sheet
+is pre-filled from the can photo.
+
+---
+
 ## Rules
 
 | Rule | Why |

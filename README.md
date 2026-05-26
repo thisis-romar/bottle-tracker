@@ -138,9 +138,14 @@ npm install
 npm run dev      # dev server
 npm run build    # tsc typecheck + vite build
 npm test         # vitest (unit tests, e.g. the multi-source reconciler)
+
+# Offline OCR profiler — turn label photos into merge-ready DB contributions (no API key):
+npm run profile:labels -- ./photo.jpg --barcode 811538010238 --name "1800 Reposado Tequila 750 mL" --type tequila
+node scripts/merge-contributions.mjs   # fold contributions/*.json into product-db.json
 ```
 
-CI (`.github/workflows/ci.yml`) runs build + tests on every push and PR.
+CI (`.github/workflows/ci.yml`) runs build + tests on every push and PR. See
+[CONTRIBUTING.md](./CONTRIBUTING.md) for the OCR profiler and the in-app **"📷 Read label"** button.
 
 ## Roadmap
 

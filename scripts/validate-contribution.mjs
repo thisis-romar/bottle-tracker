@@ -16,38 +16,9 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join } from 'path'
+import { validateBarcode } from './lib/barcode.mjs'
 
 const MATERIALS = ['aluminum', 'glass', 'plastic', 'tetra']
-
-// ─── Check digit validation ──────────────────────────────────────────────────
-
-function upcCheckDigit(digits11) {
-  const odds  = [...digits11].slice(0, 11).filter((_,i) => i % 2 === 0).reduce((s,d) => s + +d, 0)
-  const evens = [...digits11].slice(0, 11).filter((_,i) => i % 2 === 1).reduce((s,d) => s + +d, 0)
-  return (10 - (odds * 3 + evens) % 10) % 10
-}
-
-function ean13CheckDigit(digits12) {
-  const total = [...digits12].slice(0, 12).reduce((s, d, i) => s + +d * (i % 2 === 0 ? 1 : 3), 0)
-  return (10 - total % 10) % 10
-}
-
-function validateBarcode(bc) {
-  if (!/^\d+$/.test(bc)) return { valid: false, reason: 'Non-numeric characters' }
-  if (bc.length === 12) {
-    const expected = upcCheckDigit(bc)
-    const actual = +bc[11]
-    if (expected !== actual) return { valid: false, reason: `UPC-A check digit fail: expected ${expected}, got ${actual}` }
-    return { valid: true }
-  }
-  if (bc.length === 13) {
-    const expected = ean13CheckDigit(bc)
-    const actual = +bc[12]
-    if (expected !== actual) return { valid: false, reason: `EAN-13 check digit fail: expected ${expected}, got ${actual}` }
-    return { valid: true }
-  }
-  return { valid: false, reason: `Wrong length (${bc.length}): must be 12 (UPC-A) or 13 (EAN-13)` }
-}
 
 // ─── Parse GitHub issue body ─────────────────────────────────────────────────
 

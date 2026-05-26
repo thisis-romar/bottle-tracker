@@ -290,6 +290,26 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
     await handleScannedCode(code)
   }
 
+  // Profile a label with OCR (+ AI if on): read size/material/ABV off the can photo and open the
+  // confirm sheet pre-filled — for products whose barcode you typed but no database recognises.
+  const submitManualWithLabel = async () => {
+    const code = manualCode.replace(/\s/g, '')
+    if (!/^\d{6,14}$/.test(code)) {
+      addToast('Enter the barcode first, then read the label', 'info')
+      return
+    }
+    setManualOpen(false)
+    setManualCode('')
+    lastScanRef.current = null
+    addToast('📷 Reading label…', 'info')
+    const imageJpeg = await captureFrameJpeg(videoRef.current)
+    const reconciled = await gatherProductFacts({
+      barcode: code, imageJpeg, aiEnabled: aiDetailsEnabled, ocrEnabled: true, visionConfig
+    })
+    setToasts([])
+    setLookup({ phase: 'show-modal', barcode: code, offResult: null, reconciled, mode: 'add' })
+  }
+
   // ─── Camera setup ────────────────────────────────────────────────────────
 
   const startScanner = useCallback(async () => {
@@ -501,6 +521,18 @@ export default function ScanScreen({ sessionKey, onItemAdded, soundEnabled = tru
                 Look up ✓
               </button>
             </div>
+            {ocrEnabled && (
+              <button
+                onClick={() => void submitManualWithLabel()}
+                style={{
+                  width: '100%', marginTop: 10, padding: '11px', borderRadius: 10,
+                  border: '1.5px solid #15803d', background: '#f0fdf4', color: '#15803d',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer'
+                }}
+              >
+                📷 Read label instead
+              </button>
+            )}
           </div>
         </div>
       )}
