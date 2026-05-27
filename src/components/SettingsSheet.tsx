@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import type { AppSettings, VisionMode, VisionModel } from '../hooks/useSettings'
 import type { GoogleAuthState } from '../hooks/useGoogleAuth'
 import { extractWithVision } from '../utils/productSources'
+import { db, type Material } from '../db'
+import { formatCents } from '../utils/refund'
+import { fetchProductDb, type ProductRecord } from '../utils/productDb'
 
 const VISION_MODELS: { id: VisionModel; label: string }[] = [
   { id: 'claude-haiku-4-5',  label: 'Haiku — fast & cheap' },
@@ -313,6 +317,10 @@ export default function SettingsSheet({
           </div>
         )}
 
+        {/* ── Barcode database ──────────────────────────── */}
+        <SectionHeader>Barcode database</SectionHeader>
+        <BarcodeDbSection />
+
         {/* ── Danger zone ──────────────────────────────── */}
         <SectionHeader>Data</SectionHeader>
 
@@ -361,6 +369,91 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
     }}>
       {children}
     </div>
+  )
+}
+
+const MATERIAL_ICON: Record<Material, string> = {
+  aluminum: '🥤', glass: '🍾', plastic: '🧴', tetra: '🧃', unknown: '📦'
+}
+
+function BarcodeDbSection() {
+  const barcodes = useLiveQuery(() => db.barcodes.toArray()) ?? []
+  const [expanded, setExpanded] = useState(false)
+  const [rich, setRich] = useState<Record<string, ProductRecord> | null>(null)
+
+  // Lazily pull the rich community fields (type/abv/brand) the first time the list is opened.
+  useEffect(() => {
+    if (!expanded || rich) return
+    let cancelled = false
+    fetchProductDb().then(file => { if (!cancelled) setRich(file?.products ?? {}) })
+    return () => { cancelled = true }
+  }, [expanded, rich])
+
+  const sorted = [...barcodes].sort((a, b) =>
+    (a.name ?? a.barcode).localeCompare(b.name ?? b.barcode)
+  )
+
+  return (
+    <div style={{ padding: '0 20px 8px' }}>
+      <button
+        onClick={() => setExpanded(x => !x)}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '10px 12px', borderRadius: 8, border: '1.5px solid #e5e7eb',
+          background: '#f9fafb', color: '#374151', fontSize: 13, fontWeight: 600, cursor: 'pointer'
+        }}
+      >
+        <span>🗂 Barcode database ({barcodes.length})</span>
+        <span style={{ color: '#9ca3af' }}>{expanded ? '▲' : '▼'}</span>
+      </button>
+
+      {expanded && (
+        barcodes.length === 0 ? (
+          <div style={{ fontSize: 13, color: '#9ca3af', padding: '12px 4px' }}>No barcodes yet.</div>
+        ) : (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {sorted.map(b => {
+              const p = rich?.[b.barcode]
+              return (
+                <div key={b.barcode} style={{
+                  border: '1px solid #f3f4f6', borderRadius: 10, padding: '10px 12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{MATERIAL_ICON[b.material]}</span>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: '#1f2937', flex: 1, minWidth: 0 }}>
+                      {b.name ?? `${b.material} ${b.volumeMl} mL`}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#9ca3af', fontFamily: 'monospace', margin: '2px 0 0 26px' }}>
+                    {b.barcode}
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 0 26px' }}>
+                    <Chip>{b.volumeMl} mL</Chip>
+                    <Chip tone="green">{formatCents(b.refundCents)}</Chip>
+                    {p?.type && <Chip>{p.type}</Chip>}
+                    {p?.abv != null && <Chip>{p.abv}%</Chip>}
+                    {p?.brand && <Chip>{p.brand}</Chip>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
+function Chip({ children, tone = 'gray' }: { children: React.ReactNode; tone?: 'gray' | 'green' }) {
+  const green = tone === 'green'
+  return (
+    <span style={{
+      fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 12,
+      background: green ? '#dcfce7' : '#f3f4f6',
+      color: green ? '#15803d' : '#6b7280'
+    }}>
+      {children}
+    </span>
   )
 }
 

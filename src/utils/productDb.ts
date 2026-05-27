@@ -32,19 +32,23 @@ export interface ProductDbFile {
   products: Record<string, ProductRecord>
 }
 
-export async function loadProductDb(baseUrl = import.meta.env.BASE_URL): Promise<{ loaded: number; skipped: number }> {
-  let file: ProductDbFile
-
+/** Fetch + parse product-db.json (SW-cached offline). Returns null on any failure. */
+export async function fetchProductDb(baseUrl = import.meta.env.BASE_URL): Promise<ProductDbFile | null> {
   try {
     // BASE_URL ends in '/', so no leading slash here — yields '/bottle-tracker/product-db.json'
     // in prod and '/product-db.json' in dev (the old missing-base form 404'd under the Pages base).
     const res = await fetch(`${baseUrl}product-db.json`, { cache: 'no-cache' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    file = await res.json() as ProductDbFile
+    return await res.json() as ProductDbFile
   } catch (err) {
     console.warn('[productDb] Could not fetch product-db.json:', err)
-    return { loaded: 0, skipped: 0 }
+    return null
   }
+}
+
+export async function loadProductDb(baseUrl = import.meta.env.BASE_URL): Promise<{ loaded: number; skipped: number }> {
+  const file = await fetchProductDb(baseUrl)
+  if (!file) return { loaded: 0, skipped: 0 }
 
   const lastVersion = parseInt(localStorage.getItem(DB_VERSION_KEY) ?? '0', 10)
   if (file.version <= lastVersion) {
